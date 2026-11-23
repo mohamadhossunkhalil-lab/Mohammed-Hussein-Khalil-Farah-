@@ -1,0 +1,55 @@
+name: Build APK
+
+on:
+  workflow_dispatch:            # تشغيل يدوي: Actions ← Build APK ← Run workflow
+  push:
+    paths:                      # يُعاد البناء تلقائيًا عند تغيير اللعبة أو مشروع أندرويد
+      - 'index.html'
+      - 'android/**'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: write               # للسماح بحفظ escape-shadow.apk في المستودع
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Sync the game into the app
+        run: cp index.html android/app/src/main/assets/www/index.html
+
+      - name: Build APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon -Pvc=${{ github.run_number }}
+
+      - name: Rename to escape-shadow.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk escape-shadow.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: escape-shadow-apk
+          path: escape-shadow.apk
+
+      - name: Publish APK next to index.html (GitHub Pages)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add escape-shadow.apk
+          if git diff --cached --quiet; then
+            echo "لا تغيير في الملف"
+          else
+            git commit -m "Update escape-shadow.apk (build ${{ github.run_number }})"
+            git push
+          fi
