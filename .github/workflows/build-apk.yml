@@ -1,21 +1,23 @@
 name: Build APK
 
 on:
-  workflow_dispatch:            # تشغيل يدوي: Actions ← Build APK ← Run workflow
+  workflow_dispatch:
   push:
-    paths:                      # يُعاد البناء تلقائيًا عند تغيير اللعبة أو مشروع أندرويد
+    paths:
       - 'index.html'
       - 'android/**'
       - '.github/workflows/build-apk.yml'
 
 permissions:
-  contents: write               # للسماح بحفظ escape-shadow.apk في المستودع
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -27,7 +29,9 @@ jobs:
           gradle-version: '8.7'
 
       - name: Sync the game into the app
-        run: cp index.html android/app/src/main/assets/www/index.html
+        run: |
+          mkdir -p android/app/src/main/assets/www
+          cp index.html android/app/src/main/assets/www/index.html
 
       - name: Build APK
         working-directory: android
