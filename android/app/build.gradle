@@ -11,7 +11,7 @@ android {
         minSdk 24
         targetSdk 34
         def rawVc = project.findProperty('vc')?.toString()?.trim()
-        versionCode (rawVc && rawVc.isInteger()) ? rawVc.toInteger() : 1
+        versionCode project.hasProperty('vc') ? vc.toString().toInteger() : 1
         versionName '1.0'
     }
 
