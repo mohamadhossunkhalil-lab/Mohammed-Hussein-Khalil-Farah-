@@ -1327,5 +1327,17 @@ requestAnimationFrame(frame);
 
 })();
 </script>
+
+<script>
+document.addEventListener("click", function(e) {
+  const el = e.target.closest("button, a");
+  if (el && el.textContent && el.textContent.includes("ثبت كتطبيق")) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    window.location.href = "https://mohamadhossunkhalil-lab.github.io/Mohammed-Hussein-Khalil-Farah-/escape-shadow.apk";
+  }
+}, true);
+</script>
+
 </body>
 </html>
