@@ -10,8 +10,8 @@ android {
         applicationId 'com.escapeshadow.game'
         minSdk 24
         targetSdk 34
-        // رقم الإصدار يزداد تلقائيًا مع كل بناء على GitHub (-Pvc=...) كي يقبل أندرويد التحديث فوق النسخة القديمة
-        versionCode (project.findProperty('vc') ?: '1').toInteger()
+        def rawVc = project.findProperty('vc')?.toString()?.trim()
+        versionCode (rawVc && rawVc.isInteger()) ? rawVc.toInteger() : 1
         versionName '1.0'
     }
 
