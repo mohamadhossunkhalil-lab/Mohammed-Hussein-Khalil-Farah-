@@ -10,7 +10,6 @@ android {
         applicationId 'com.escapeshadow.game'
         minSdk 24
         targetSdk 34
-        def rawVc = project.findProperty('vc')?.toString()?.trim()
         versionCode project.hasProperty('vc') ? vc.toString().toInteger() : 1
         versionName '1.0'
     }
