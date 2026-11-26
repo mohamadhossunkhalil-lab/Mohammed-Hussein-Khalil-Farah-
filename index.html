@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>اهرب من الظل</title>
+<meta name="theme-color" content="#05030d">
+<meta name="description" content="لعبة مطاردة: اجمع الجواهر وانجُ من الظل.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="اهرب من الظل">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <style>
   :root{
     --cyan:#7df9ff;
@@ -18,7 +27,7 @@
     width:100%;height:100%;overflow:hidden;background:var(--ink);color:var(--text);
     font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic","Geeza Pro",system-ui,sans-serif;
     -webkit-user-select:none;user-select:none;touch-action:none;
-    -webkit-tap-highlight-color:transparent;
+    -webkit-tap-highlight-color:transparent;overscroll-behavior:none;
   }
   canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
 
@@ -101,7 +110,6 @@
   #comboChip .meter i{background:var(--gold)}
   #shieldChip{border-color:rgba(255,233,168,.55);color:#ffe9a8}
   #coinChip{color:var(--gold)}
-  #mazeChip{border-color:rgba(125,249,255,.45);color:var(--cyan)}
 
   /* ===== لافتة المستوى ===== */
   #banner{position:fixed;top:26%;left:0;right:0;text-align:center;pointer-events:none;opacity:0;padding:0 16px}
@@ -113,17 +121,20 @@
   @keyframes bannerFade{0%{opacity:0}14%{opacity:1}78%{opacity:1}100%{opacity:0}}
 
   /* ===== زر الاندفاع ===== */
-  #dashBtn{
-    position:fixed;bottom:14px;right:14px;width:72px;height:72px;border-radius:50%;
+  #dashBtn,#pulseBtn{
+    position:fixed;bottom:14px;width:72px;height:72px;border-radius:50%;
     border:1.5px solid rgba(125,249,255,.3);color:var(--text);font-family:inherit;cursor:pointer;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
     background:conic-gradient(rgba(125,249,255,.4) var(--p,100%),rgba(10,6,32,.65) 0);
     transition:opacity .3s,box-shadow .2s,border-color .2s;touch-action:none;
   }
-  #dashBtn.off{opacity:0;pointer-events:none}
+  #dashBtn.off,#pulseBtn.off{opacity:0;pointer-events:none}
   #dashBtn.ready{border-color:var(--cyan);box-shadow:0 0 18px rgba(125,249,255,.5)}
-  #dashBtn span{font-size:24px;line-height:1}
-  #dashBtn small{font-size:11px;color:var(--mute)}
+  #dashBtn span,#pulseBtn span{font-size:24px;line-height:1}
+  #dashBtn small,#pulseBtn small{font-size:11px;color:var(--mute)}
+  #dashBtn{right:14px}
+  #pulseBtn{right:94px;background:conic-gradient(rgba(255,236,170,.42) var(--p,100%),rgba(10,6,32,.65) 0);border-color:rgba(255,226,140,.3)}
+  #pulseBtn.ready{border-color:#ffe9a8;box-shadow:0 0 18px rgba(255,226,140,.55)}
 
   /* ===== أزرار إضافية ===== */
   .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
@@ -143,7 +154,9 @@
   #shopCoins{font-size:22px;font-weight:800;color:var(--gold);text-shadow:0 0 12px rgba(255,216,107,.6)}
   #shopMsg{min-height:22px;font-size:15px;color:var(--cyan)}
   #shopMsg.bad{color:#ff8fa8}
-  #skinGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;width:min(760px,100%)}
+  #skinGrid,#upgGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;width:min(760px,100%)}
+  #skinGrid.hidden,#upgGrid.hidden{display:none}
+  #upgGrid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
   .skin{--rgb:125,249,255;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px 12px;
     border-radius:16px;background:rgba(var(--rgb),.06);border:1px solid rgba(var(--rgb),.35);text-align:center}
   .skin.on{border-color:rgb(var(--rgb));box-shadow:0 0 22px rgba(var(--rgb),.35),inset 0 0 20px rgba(var(--rgb),.1)}
@@ -156,13 +169,57 @@
   .skin button:disabled{cursor:default;opacity:.65}
   .skin.locked button{border-color:rgba(255,216,107,.6);color:var(--gold);background:rgba(255,216,107,.08)}
   #shopClose{flex:none}
+  .skin .tr{font-size:12px;font-weight:700;color:rgb(var(--rgb))}
+  .upg .ic{font-size:36px;line-height:1;height:76px;display:flex;align-items:center;justify-content:center;
+    filter:drop-shadow(0 0 10px rgba(var(--rgb),.7))}
+  .upg p{white-space:pre-line;min-height:62px}
+  .upg.maxed{border-color:rgb(var(--rgb));box-shadow:0 0 18px rgba(var(--rgb),.25)}
+  .pips{display:flex;gap:5px}
+  .pips i{display:block;width:14px;height:6px;border-radius:99px;background:rgba(255,255,255,.14)}
+  .pips i.f{background:rgb(var(--rgb));box-shadow:0 0 8px rgba(var(--rgb),.7)}
+  .tabs{display:flex;gap:4px;padding:4px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+  .tab{padding:8px 26px;font-family:inherit;font-size:16px;font-weight:700;color:var(--mute);cursor:pointer;
+    border:0;border-radius:999px;background:transparent;transition:background .2s,color .2s}
+  .tab.on{color:var(--text);background:rgba(125,249,255,.18);box-shadow:inset 0 0 12px rgba(125,249,255,.18)}
+
+  /* ===== التثبيت كتطبيق ===== */
+  button.main.sm{padding:9px 30px;font-size:17px}
+  #installBtn[hidden]{display:none}
+  #installInfo{background:rgba(5,3,13,.96)}
+  .steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:12px;max-width:360px;width:100%;text-align:right}
+  .steps li{counter-increment:s;display:flex;gap:12px;align-items:center;font-size:16px;line-height:1.7;color:#c5cbe8}
+  .steps li::before{content:counter(s);flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;
+    border:1px solid var(--cyan);color:var(--cyan);font-weight:800;font-size:14px}
+  #installNote{font-size:15px}
+  #installNote.warn{color:#ffb7c5}
+
+  /* ===== طور أرض المتاهة ===== */
+  button.main.maze{border-color:rgba(182,107,255,.75);color:#efe0ff;background:rgba(182,107,255,.08);
+    box-shadow:0 0 18px rgba(182,107,255,.3),inset 0 0 14px rgba(182,107,255,.12)}
+  button.main.maze:hover{background:rgba(182,107,255,.2);box-shadow:0 0 30px rgba(182,107,255,.55),inset 0 0 18px rgba(182,107,255,.2)}
+  button.main:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
+  button.main.maze[hidden]{display:none}
+
+  /* ===== إحصائيات الجولة ===== */
+  #over{gap:12px}
+  .rstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:min(440px,100%)}
+  .rs{display:flex;flex-direction:column;gap:3px;padding:9px 6px;border-radius:14px;
+    background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1)}
+  .rs b{font-size:24px;line-height:1.1;font-weight:800}
+  .rs small{font-size:12px;color:var(--mute)}
+  .rs.rec{border-color:rgba(255,216,107,.6);box-shadow:0 0 16px rgba(255,216,107,.2)}
+  .rs.rec b,.rs.rec small{color:var(--gold)}
+  .rs.rec small::after{content:' ★ رقم قياسي'}
 
   @media (max-width:520px){
     .stat b{font-size:26px}
     #powerBox{flex-basis:130px}
     #subhud{top:58px;gap:6px}
     .chip{font-size:12px;padding:4px 10px}
-    #dashBtn{width:64px;height:64px}
+    #dashBtn,#pulseBtn{width:64px;height:64px}
+    #pulseBtn{right:84px}
+    .rs b{font-size:20px}
+    .tab{padding:8px 20px}
     .scores{gap:22px}
   }
   @media (prefers-reduced-motion:reduce){
@@ -187,7 +244,6 @@
 
 <div id="subhud" class="off">
   <div class="chip" id="levelChip"><span id="levelTxt">المستوى 1</span><span class="meter"><i id="levelFill"></i></span></div>
-  <div class="chip hidden" id="mazeChip">🧩 أرض المتاهة</div>
   <div class="chip hidden" id="comboChip"><span id="comboTxt"></span><span class="meter"><i id="comboFill"></i></span></div>
   <div class="chip hidden" id="shieldChip">🛡 الدرع مفعّل</div>
   <div class="chip" id="coinChip">🪙 <span id="coinVal">0</span></div>
@@ -195,6 +251,7 @@
 
 <div id="banner" aria-live="polite"><b id="bannerTitle"></b><small id="bannerSub"></small></div>
 
+<button id="pulseBtn" class="off" aria-label="نبضة النور" title="نبضة النور (E أو Q)"><span>✦</span><small>نبضة</small></button>
 <button id="dashBtn" class="off" aria-label="اندفاع" title="اندفاع (مسافة أو Shift)"><span>⚡</span><small>اندفاع</small></button>
 
 <button id="muteBtn" aria-label="كتم الصوت" title="كتم / تشغيل الصوت (M)">🔊</button>
@@ -203,11 +260,13 @@
 <div class="panel" id="menu">
   <h1>اهرب من الظل</h1>
   <p class="lead">حرّك الشخصية بالأسهم أو <b>W A S D</b>، أو اسحب بإصبعك على الشاشة.<br>
-  اجمع الجواهر لترتقي بالمستويات قبل أن يلحق بك الظل. التقط <b>الجليد</b> لتجميده و<b>الدرع</b> ليحميك من لمسة واحدة، واضغط <b>مسافة</b> (أو زر ⚡) للاندفاع.</p>
+  اجمع الجواهر لترتقي بالمستويات قبل أن يلحق بك الظل. التقط <b>الجليد</b> لتجميده و<b>الدرع</b> ليحميك من لمسة واحدة، واضغط <b>مسافة</b> (أو زر ⚡) للاندفاع، و<b>E</b> (أو زر ✦) لنبضة نور تدفع الظل للخلف وتكشف الجواهر البعيدة.</p>
   <div class="row">
     <button class="main" id="startBtn">ابدأ</button>
     <button class="main alt" id="shopBtn">المتجر</button>
   </div>
+  <button class="main maze sm" id="mazeBtn">🧩 أرض المتاهة</button>
+  <button class="main alt sm" id="installBtn" hidden>⬇ ثبّت كتطبيق</button>
   <div id="menuBest"></div>
   <div id="menuCoins"></div>
 </div>
@@ -220,12 +279,21 @@
     <div><small>المستوى</small><b id="finalLevel">1</b></div>
     <div><small>الأعلى</small><b id="finalBest">0</b></div>
   </div>
+  <div class="rstats" id="runStats">
+    <div class="rs" id="stComboBox"><b id="stCombo">0</b><small id="stComboLbl">أعلى كومبو</small></div>
+    <div class="rs"><b id="stTime">0:00</b><small>مدة النجاة</small></div>
+    <div class="rs"><b id="stDash">0</b><small>مرات الاندفاع</small></div>
+    <div class="rs"><b id="stSave">0</b><small>إنقاذ بالدرع</small></div>
+    <div class="rs"><b id="stPulse">0</b><small>نبضات النور</small></div>
+    <div class="rs"><b id="stIce">0</b><small>تجميد الظل</small></div>
+  </div>
   <div id="runCoins"></div>
   <div id="recordTag" class="hidden">رقم قياسي جديد!</div>
   <div class="row">
     <button class="main" id="retryBtn">إعادة المحاولة</button>
     <button class="main alt" id="shopBtn2">المتجر</button>
   </div>
+  <button class="main maze sm" id="modeBtn2" hidden>🧩 أرض المتاهة</button>
 </div>
 
 
@@ -236,10 +304,22 @@
 </div>
 
 <div class="panel hidden" id="shop">
-  <div class="top"><h2>متجر الشخصيات</h2><div id="shopCoins">🪙 0</div></div>
+  <div class="top"><h2>المتجر</h2><div id="shopCoins">🪙 0</div></div>
+  <div class="tabs" role="tablist">
+    <button class="tab on" id="tabSkins" role="tab" aria-selected="true">الشخصيات</button>
+    <button class="tab" id="tabUpg" role="tab" aria-selected="false">الترقيات</button>
+  </div>
   <div id="shopMsg" role="status"></div>
   <div id="skinGrid"></div>
+  <div id="upgGrid" class="hidden"></div>
   <button class="main" id="shopClose">رجوع</button>
+</div>
+
+<div class="panel hidden" id="installInfo" role="dialog" aria-modal="true" aria-labelledby="installTitle">
+  <h2 id="installTitle">ثبّت اللعبة</h2>
+  <p class="lead" id="installNote"></p>
+  <ol class="steps" id="installSteps"></ol>
+  <button class="main" id="installClose">تمام</button>
 </div>
 
 <script>
@@ -262,11 +342,14 @@ const el = {
   recordTag: $('recordTag'), runCoins: $('runCoins'),
   menuBest: $('menuBest'), menuCoins: $('menuCoins'), mute: $('muteBtn'),
   subhud: $('subhud'), levelTxt: $('levelTxt'), levelFill: $('levelFill'),
-  mazeChip: $('mazeChip'),
   comboChip: $('comboChip'), comboTxt: $('comboTxt'), comboFill: $('comboFill'),
   shieldChip: $('shieldChip'), coinVal: $('coinVal'),
   dash: $('dashBtn'), banner: $('banner'), bannerTitle: $('bannerTitle'), bannerSub: $('bannerSub'),
-  shopCoins: $('shopCoins'), shopMsg: $('shopMsg'), skinGrid: $('skinGrid')
+  shopCoins: $('shopCoins'), shopMsg: $('shopMsg'), skinGrid: $('skinGrid'),
+  upgGrid: $('upgGrid'), tabSkins: $('tabSkins'), tabUpg: $('tabUpg'), pulse: $('pulseBtn'),
+  install: $('installBtn'), installInfo: $('installInfo'), installNote: $('installNote'), installSteps: $('installSteps'),
+  stCombo: $('stCombo'), stComboLbl: $('stComboLbl'), stComboBox: $('stComboBox'), stTime: $('stTime'),
+  stDash: $('stDash'), stSave: $('stSave'), stPulse: $('stPulse'), stIce: $('stIce')
 };
 
 /* ---------- أدوات رياضية ---------- */
@@ -294,182 +377,32 @@ const FREEZE_TIME = 3;      // مدة تجميد الظل بالثواني
 const POWER_LIFE = 9;       // مدة بقاء أيقونة الجليد على الخريطة
 const HUD_SAFE = 112;        // منطقة الشريط العلوي (لا تظهر فيها العناصر)
 
-
-const MAZE_START_LEVEL = 51;
-const MAZE_COLS = 21;
-const MAZE_ROWS = 21;
-const MAZE_CELL = 88;
-const MAZE_WALL_THICK = 14;
-const MAZE_PLAYER_SCALE = 0.64;
-const MAZE_SHADOW_SCALE = 0.64;
-const MAZE_SHADOW_SPEED_MUL = 0.40;
-const cam = { x: 0, y: 0 };
-let sR = SHADOW.r;
-let mazeWalls = [];
-let mazeWorldW = 0, mazeWorldH = 0;
-
-function isMazeActive() {
-  return level >= MAZE_START_LEVEL && state !== 'menu';
-}
-function effectivePlayerR() {
-  const base = PLAYER.r * (skin.radius || 1);
-  return isMazeActive() ? Math.max(8, base * MAZE_PLAYER_SCALE) : base;
-}
-function effectiveShadowR() {
-  return isMazeActive() ? Math.max(12, SHADOW.r * MAZE_SHADOW_SCALE) : SHADOW.r;
-}
-function refreshEntitySizes() {
-  pR = effectivePlayerR();
-  sR = effectiveShadowR();
-}
-function buildMaze() {
-  mazeWalls = [];
-  mazeWorldW = MAZE_COLS * MAZE_CELL;
-  mazeWorldH = MAZE_ROWS * MAZE_CELL;
-  const grid = Array.from({ length: MAZE_ROWS }, () => Array(MAZE_COLS).fill(true));
-  const dirs = [[0, -2], [2, 0], [0, 2], [-2, 0]];
-  function carve(cx, cy) {
-    grid[cy][cx] = false;
-    const order = dirs.slice().sort(() => Math.random() - 0.5);
-    for (const [dx, dy] of order) {
-      const nx = cx + dx, ny = cy + dy;
-      if (ny > 0 && ny < MAZE_ROWS - 1 && nx > 0 && nx < MAZE_COLS - 1 && grid[ny][nx]) {
-        grid[cy + dy / 2][cx + dx / 2] = false;
-        carve(nx, ny);
-      }
-    }
-  }
-  carve(1, 1);
-  for (let y = 2; y < MAZE_ROWS - 2; y++) {
-    for (let x = 2; x < MAZE_COLS - 2; x++) {
-      if (grid[y][x] && Math.random() < 0.14) {
-        const horizOpen = !grid[y][x - 1] && !grid[y][x + 1];
-        const vertOpen = !grid[y - 1][x] && !grid[y + 1][x];
-        if (horizOpen || vertOpen) grid[y][x] = false;
-      }
-    }
-  }
-  mazeWalls.push({ x: 0, y: 0, w: mazeWorldW, h: MAZE_WALL_THICK });
-  mazeWalls.push({ x: 0, y: mazeWorldH - MAZE_WALL_THICK, w: mazeWorldW, h: MAZE_WALL_THICK });
-  mazeWalls.push({ x: 0, y: 0, w: MAZE_WALL_THICK, h: mazeWorldH });
-  mazeWalls.push({ x: mazeWorldW - MAZE_WALL_THICK, y: 0, w: MAZE_WALL_THICK, h: mazeWorldH });
-  for (let r = 0; r < MAZE_ROWS; r++) {
-    for (let c = 0; c < MAZE_COLS; c++) {
-      if (grid[r][c]) mazeWalls.push({ x: c * MAZE_CELL, y: r * MAZE_CELL, w: MAZE_CELL, h: MAZE_CELL });
-    }
-  }
-}
-function pointHitsWall(px, py, rad) {
-  for (const w of mazeWalls) {
-    const cx = clamp(px, w.x, w.x + w.w);
-    const cy = clamp(py, w.y, w.y + w.h);
-    const dx = px - cx, dy = py - cy;
-    if (dx * dx + dy * dy < rad * rad) return true;
-  }
-  return false;
-}
-function resolveCircleWalls(ent, rad, bounceX, bounceY, minBounce) {
-  if (!isMazeActive()) return;
-  ent.x = clamp(ent.x, rad, mazeWorldW - rad);
-  ent.y = clamp(ent.y, rad, mazeWorldH - rad);
-  for (let pass = 0; pass < 2; pass++) {
-    for (const w of mazeWalls) {
-      const cx = clamp(ent.x, w.x, w.x + w.w);
-      const cy = clamp(ent.y, w.y, w.y + w.h);
-      let dx = ent.x - cx, dy = ent.y - cy;
-      let dist = Math.hypot(dx, dy);
-      if (dist < rad) {
-        let nx = 0, ny = 0, overlap = 0;
-        if (dist > 0.0001) {
-          nx = dx / dist; ny = dy / dist; overlap = rad - dist;
-        } else {
-          const lp = Math.abs(ent.x - w.x), rp = Math.abs(w.x + w.w - ent.x);
-          const tp = Math.abs(ent.y - w.y), bp = Math.abs(w.y + w.h - ent.y);
-          const m = Math.min(lp, rp, tp, bp);
-          if (m === lp) { nx = -1; overlap = lp + rad; }
-          else if (m === rp) { nx = 1; overlap = rp + rad; }
-          else if (m === tp) { ny = -1; overlap = tp + rad; }
-          else { ny = 1; overlap = bp + rad; }
-        }
-        ent.x += nx * overlap; ent.y += ny * overlap;
-        const vn = ent.vx * nx + ent.vy * ny;
-        if (vn < 0) {
-          const b = Math.max(minBounce || 0, Math.min(bounceX, bounceY));
-          ent.vx -= (1 + b) * vn * nx;
-          ent.vy -= (1 + b) * vn * ny;
-        }
-      }
-    }
-  }
-}
-function enterMazeMode() {
-  buildMaze();
-  refreshEntitySizes();
-  player.x = MAZE_CELL * 1.5; player.y = MAZE_CELL * 1.5;
-  player.vx = 0; player.vy = 0;
-  let sx = mazeWorldW - MAZE_CELL * 1.5, sy = mazeWorldH - MAZE_CELL * 1.5;
-  if (pointHitsWall(sx, sy, sR)) {
-    for (let r = MAZE_ROWS - 2; r >= 1; r--) {
-      for (let c = MAZE_COLS - 2; c >= 1; c--) {
-        const tx = c * MAZE_CELL + MAZE_CELL * 0.5, ty = r * MAZE_CELL + MAZE_CELL * 0.5;
-        if (!pointHitsWall(tx, ty, sR) && Math.hypot(tx - player.x, ty - player.y) > MAZE_CELL * 6) {
-          sx = tx; sy = ty; r = 0; break;
-        }
-      }
-    }
-  }
-  shadow.x = sx; shadow.y = sy; shadow.vx = 0; shadow.vy = 0;
-  cam.x = player.x - W / 2; cam.y = player.y - H / 2;
-  spawnGem();
-  if (power) spawnPower();
-}
-function updateCamera(dt) {
-  if (isMazeActive()) {
-    const tx = clamp(player.x - W / 2, 0, Math.max(0, mazeWorldW - W));
-    const ty = clamp(player.y - H / 2, 0, Math.max(0, mazeWorldH - H));
-    const k = 1 - Math.exp(-9 * dt);
-    cam.x = lerp(cam.x, tx, k); cam.y = lerp(cam.y, ty, k);
-  } else {
-    cam.x = 0; cam.y = 0;
-  }
-}
-function drawMazeWalls() {
-  if (!isMazeActive() || !mazeWalls.length) return;
-  const th = themeMix();
-  ctx.save();
-  ctx.fillStyle = 'rgba(14, 9, 34, 0.88)';
-  ctx.strokeStyle = 'rgba(' + rgb(th.grid) + ', 0.45)';
-  ctx.lineWidth = 2;
-  for (const w of mazeWalls) {
-    ctx.fillRect(w.x, w.y, w.w, w.h);
-    ctx.strokeRect(w.x + 1, w.y + 1, Math.max(0, w.w - 2), Math.max(0, w.h - 2));
-  }
-  ctx.restore();
-}
-function drawMinimap() {
-  if (!isMazeActive() || !mazeWorldW || !mazeWorldH) return;
-  const mapSize = Math.min(132, Math.max(96, Math.min(W, H) * 0.2));
-  const mx = W - mapSize - 14, my = H - mapSize - 98;
-  const sx = mapSize / mazeWorldW, sy = mapSize / mazeWorldH;
-  ctx.save();
-  ctx.fillStyle = 'rgba(6, 4, 18, 0.75)';
-  ctx.strokeStyle = 'rgba(125, 249, 255, 0.35)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.roundRect(mx, my, mapSize, mapSize, 10); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = 'rgba(125, 249, 255, 0.25)';
-  for (const w of mazeWalls) ctx.fillRect(mx + w.x * sx, my + w.y * sy, Math.max(1, w.w * sx), Math.max(1, w.h * sy));
-  if (gem) { ctx.fillStyle = '#ffd86b'; ctx.beginPath(); ctx.arc(mx + gem.x * sx, my + gem.y * sy, 2.8, 0, TAU); ctx.fill(); }
-  ctx.fillStyle = '#b66bff'; ctx.beginPath(); ctx.arc(mx + shadow.x * sx, my + shadow.y * sy, 3.6, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#7df9ff'; ctx.beginPath(); ctx.arc(mx + player.x * sx, my + player.y * sy, 3.4, 0, TAU); ctx.fill();
-  ctx.restore();
-}
-
 /* ---------- المستويات والاندفاع ---------- */
 const LEVEL_STEP = 5;        // عدد الجواهر اللازمة للارتقاء لمستوى جديد
 const GEM_TTL_LEVEL = 3;     // من هذا المستوى تختفي الجوهرة إن تأخرت عليها
 const LUNGE_LEVEL = 4;       // من هذا المستوى ينقضّ الظل نقضات سريعة (بعد إنذار)
 const COMBO_TIME = 2.6;      // المهلة بين جوهرتين للحفاظ على الكومبو
 const DASH = { speed: 760, time: 0.17, cd: 2.4 };
+// نبضة النور: موجة تدفع الظل وتكشف الجواهر مؤقتًا
+const PULSE = { cd: 11, radius: 280, dur: 0.7, reveal: 3.4, push: 860, stun: 0.9 };
+
+/* ---------- الترقيات (تُحفظ في localStorage) ---------- */
+const MAX_UPG = 5;
+const f1 = v => (Math.round(v * 10) / 10).toString();
+const UPGRADES = [
+  { id: 'dash', icon: '⚡', name: 'شحن الاندفاع', rgb: '125,249,255', costs: [40, 80, 130, 200, 300],
+    label: 'يقلّل زمن إعادة الشحن',
+    val: l => DASH.cd * (1 - 0.09 * l), show: l => f1(DASH.cd * (1 - 0.09 * l)) + ' ث' },
+  { id: 'combo', icon: '🔥', name: 'مهلة الكومبو', rgb: '255,216,107', costs: [40, 80, 130, 200, 300],
+    label: 'مهلة أطول بين الجواهر',
+    val: l => COMBO_TIME + 0.3 * l, show: l => f1(COMBO_TIME + 0.3 * l) + ' ث' },
+  { id: 'shield', icon: '🛡', name: 'حصانة الدرع', rgb: '255,226,140', costs: [45, 90, 140, 210, 310],
+    label: 'حماية أطول بعد تحطّم الدرع',
+    val: l => 1.4 + 0.4 * l, show: l => f1(1.4 + 0.4 * l) + ' ث' },
+  { id: 'pulse', icon: '✦', name: 'نبضة النور', rgb: '190,215,255', costs: [50, 90, 150, 230, 340],
+    label: 'شحن أسرع ومدى أوسع',
+    val: l => PULSE.cd - 1.2 * l, show: l => f1(PULSE.cd - 1.2 * l) + ' ث، المدى +' + 6 * l + '٪' }
+];
 
 // ألوان كل مستوى (تتبدّل تدريجيًا عند الارتقاء)
 const THEMES = [
@@ -483,12 +416,12 @@ const THEMES = [
 
 /* ---------- الشخصيات (المتجر) ---------- */
 const SKINS = [
-  { id: 'nur',      name: 'نور',   price:0,   shape: 'circle',  c: ['#ffffff', '#aef6ff', '#3fd3f0'], glow: '#7df9ff', rgb: '125,249,255', perk: 'الشخصية الأساسية' },
-  { id: 'jamr',     name: 'جمر',   price:6000,  shape: 'drop',    c: ['#fff3d6', '#ffb26b', '#ff5a36'], glow: '#ff7a45', rgb: '255,122,69',  perk: 'تسارع أعلى عند الحركة', accel: 1.2 },
-  { id: 'zumurrud', name: 'زمرّد', price:12000, shape: 'diamond', c: ['#eafff3', '#7dffb4', '#10c26a'], glow: '#4dffa0', rgb: '77,255,160',  perk: 'مغناطيس يجذب الجواهر القريبة', magnet: 34 },
-  { id: 'najma',    name: 'نجمة',  price:20000, shape: 'star',    c: ['#ffffff', '#e0b8ff', '#8a3ffc'], glow: '#b66bff', rgb: '182,107,255', perk: 'يطول تجميد الظل ثانية إضافية', freezeBonus: 1 },
-  { id: 'dhahab',   name: 'ذهب',   price:30000, shape: 'square',  c: ['#fff8dc', '#ffd86b', '#d99a14'], glow: '#ffd86b', rgb: '255,216,107', perk: 'عملات أكثر بنسبة ٥٠٪', coinMul: 1.5 },
-  { id: 'shabah',   name: 'شبح',   price:45000, shape: 'ghost',   c: ['#ffffff', '#e6ecff', '#9aa6d6'], glow: '#cfd8ff', rgb: '207,216,255', perk: 'حجم أصغر فيصعب اصطياده', radius: 0.78 }
+  { id: 'nur',      name: 'نور',   price: 0,   shape: 'circle',  c: ['#ffffff', '#aef6ff', '#3fd3f0'], glow: '#7df9ff', rgb: '125,249,255', perk: 'الشخصية الأساسية', trail: 'glow', trailName: 'وهج مضيء' },
+  { id: 'jamr',     name: 'جمر',   price: 60,  shape: 'drop',    c: ['#fff3d6', '#ffb26b', '#ff5a36'], glow: '#ff7a45', rgb: '255,122,69',  perk: 'تسارع أعلى عند الحركة', accel: 1.2, trail: 'ember', trailName: 'شرر وجمر متطاير' },
+  { id: 'zumurrud', name: 'زمرّد', price: 120, shape: 'diamond', c: ['#eafff3', '#7dffb4', '#10c26a'], glow: '#4dffa0', rgb: '77,255,160',  perk: 'مغناطيس يجذب الجواهر القريبة', magnet: 34, trail: 'gem', trailName: 'شظايا زمردية' },
+  { id: 'najma',    name: 'نجمة',  price: 200, shape: 'star',    c: ['#ffffff', '#e0b8ff', '#8a3ffc'], glow: '#b66bff', rgb: '182,107,255', perk: 'يطول تجميد الظل ثانية إضافية', freezeBonus: 1, trail: 'star', trailName: 'غبار نجمي' },
+  { id: 'dhahab',   name: 'ذهب',   price: 300, shape: 'square',  c: ['#fff8dc', '#ffd86b', '#d99a14'], glow: '#ffd86b', rgb: '255,216,107', perk: 'عملات أكثر بنسبة ٥٠٪', coinMul: 1.5, trail: 'gold', trailName: 'بريق ذهبي' },
+  { id: 'shabah',   name: 'شبح',   price: 450, shape: 'ghost',   c: ['#ffffff', '#e6ecff', '#9aa6d6'], glow: '#cfd8ff', rgb: '207,216,255', perk: 'حجم أصغر فيصعب اصطياده', radius: 0.78, trail: 'mist', trailName: 'أثر ضبابي' }
 ];
 
 /* ---------- الحالة ---------- */
@@ -506,6 +439,13 @@ let newRecord = false;
 let level = 1, combo = 0, comboT = 0, runCoins = 0;
 let shield = false, invuln = 0, freezeMax = FREEZE_TIME;
 let dashT = 0, dashCd = 0;
+let pulseCd = 0, revealT = 0, shadowStun = 0;
+let trailAcc = 0, ghostT = 0, comboBeat = 0, comboWarned = false, bestCombo = 0;
+let shopTab = 'skins';
+const waves = [];
+const newStats = () => ({ maxCombo: 0, dashes: 0, saves: 0, pulses: 0, ice: 0, time: 0 });
+let stats = newStats();
+let upg = { dash: 0, combo: 0, shield: 0, pulse: 0 };
 let lungeWarn = 0, lungeT = 0, lungeCd = 8;
 let themeFrom = THEMES[0], themeTo = THEMES[0], themeT = 1;
 let shopOpen = false, shopFrom = 'menu', overAt = 0;
@@ -529,6 +469,18 @@ const store = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) 
 const saveCoins = () => store('sh_coins', coins);
 const saveOwned = () => store('sh_owned', JSON.stringify(owned));
 const saveSkin  = () => store('sh_skin', skinId);
+const saveUpg   = () => store('sh_upg', JSON.stringify(upg));
+try {
+  const u = JSON.parse(localStorage.getItem('sh_upg') || 'null');
+  if (u && typeof u === 'object') for (const k in upg) upg[k] = clamp(parseInt(u[k], 10) || 0, 0, MAX_UPG);
+  bestCombo = parseInt(localStorage.getItem('sh_bestcombo'), 10) || 0;
+} catch (e) {}
+const upgVal      = id => UPGRADES.find(u => u.id === id).val(upg[id]);
+const dashCdMax   = () => upgVal('dash');
+const comboTime   = () => upgVal('combo');
+const shieldInv   = () => upgVal('shield');
+const pulseCdMax  = () => upgVal('pulse');
+const pulseRadius = () => PULSE.radius * (1 + 0.06 * upg.pulse);
 
 /* ---------- الصوت (Web Audio) ---------- */
 let ac = null, muted = false;
@@ -549,8 +501,41 @@ function tone(freq, dur, type = 'sine', vol = 0.15, slideTo = null, delay = 0) {
   o.connect(g); g.connect(ac.destination);
   o.start(t); o.stop(t + dur + 0.03);
 }
+let noiseBuf = null;
+function noise(dur, vol = 0.05, hp = 4000, delay = 0) {   // نقرة ضوضاء قصيرة (إيقاع خفيف)
+  if (muted || !ac) return;
+  if (!noiseBuf) {
+    const n = Math.floor(ac.sampleRate * 0.3);
+    noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const t = ac.currentTime + delay;
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  src.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = hp;
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f); f.connect(g); g.connect(ac.destination);
+  src.start(t); src.stop(t + dur + 0.02);
+}
+const PENTA = [0, 2, 4, 7, 9];   // السلّم الخماسي: كل جوهرة متتالية نغمة أعلى
 const sfx = {
-  gem(n)  { const f = 660 + (n % 7) * 70; tone(f, 0.12, 'sine', 0.18, f * 1.5); tone(f * 1.5, 0.2, 'sine', 0.12, null, 0.07); },
+  // c = رقم الجوهرة في سلسلة الكومبو: النغمة ترتفع مع السلسلة وتتكاثف الطبقات الإيقاعية
+  gem(c) {
+    c = Math.max(1, c);
+    const i = Math.min(c - 1, 14), st = PENTA[i % 5] + 12 * Math.floor(i / 5);
+    const f = 523.25 * Math.pow(2, st / 12), root = 130.81 * Math.pow(2, PENTA[i % 5] / 12);
+    tone(f, 0.13, 'sine', 0.17, f * 1.02);
+    tone(f * 2, 0.18, 'sine', 0.055, null, 0.03);
+    if (c >= 3) { noise(0.035, 0.035, 7000); if ((c - 1) % 2 === 0) tone(f * 1.5, 0.16, 'triangle', 0.08, null, 0.08); }   // صعود المضاعف
+    if (c >= 5) tone(root, 0.14, 'triangle', 0.12);                                     // قدم إيقاعية
+    if (c >= 8) { tone(f * 1.25, 0.12, 'triangle', 0.06, null, 0.06); tone(f * 1.5, 0.14, 'triangle', 0.06, null, 0.12); }
+    if (c >= 12) { noise(0.12, 0.03, 9000, 0.05); tone(f * 3, 0.2, 'sine', 0.035, null, 0.09); }
+  },
+  comboWarn()  { tone(880, 0.06, 'square', 0.045); tone(740, 0.07, 'square', 0.045, null, 0.1); },
+  comboBreak() { tone(520, 0.3, 'triangle', 0.1, 200); noise(0.08, 0.03, 3000); },
+  comboBeat(c, urgent) { noise(0.03, 0.04, urgent ? 9000 : 5500); tone(urgent ? 330 : 110, 0.07, 'sine', 0.07); },
+  pulse() { tone(180, 0.55, 'sine', 0.2, 1400); tone(90, 0.5, 'sine', 0.22, 40); tone(1200, 0.4, 'triangle', 0.07, 2400, 0.08); noise(0.25, 0.05, 3000, 0.02); },
   power() { tone(300, 0.4, 'square', 0.08, 1400); tone(900, 0.25, 'sine', 0.12, 1800, 0.1); },
   thaw()  { tone(520, 0.18, 'triangle', 0.1, 240); },
   beat()  { tone(62, 0.14, 'sine', 0.28, 42); },
@@ -578,7 +563,34 @@ function burst(x, y, n, color, speed, size, opts = {}) {
     const p = particles[particles.length - 1]; p.max = p.life;
   }
 }
+const sprites = {};
+function glowSprite(hex) {   // بقعة ناعمة مخزّنة مسبقًا (للضباب والدخان)
+  if (sprites[hex]) return sprites[hex];
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), n = parseInt(hex.slice(1), 16);
+  const r = n >> 16 & 255, gg = n >> 8 & 255, b = n & 255;
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, `rgba(${r},${gg},${b},1)`);
+  gr.addColorStop(0.45, `rgba(${r},${gg},${b},.45)`);
+  gr.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return (sprites[hex] = c);
+}
+// جسيمة واحدة بسرعة وشكل مخصّصين (شكل: circle | mist | twinkle | streak | أي شكل شخصية)
+function emit(x, y, vx, vy, life, size, color, o = {}) {
+  if (particles.length > 700) particles.shift();
+  particles.push({
+    x, y, vx, vy, life, max: life, size, color,
+    add: o.add !== false, drag: o.drag === undefined ? 2.2 : o.drag, alpha: o.alpha === undefined ? 1 : o.alpha,
+    shape: o.shape || 'circle', rot: o.rot || 0, vr: o.vr || 0, g: o.g || 0,
+    grow: o.grow || 0, tw: o.tw || 0, ph: Math.random() * TAU, fixed: !!o.fixed
+  });
+}
 function updateParticles(dt) {
+  for (let i = waves.length - 1; i >= 0; i--) {
+    waves[i].t += dt;
+    if (waves[i].t > waves[i].dur + 0.15) waves.splice(i, 1);
+  }
   for (let i = floats.length - 1; i >= 0; i--) {
     const f = floats[i];
     f.life -= dt; f.y -= 42 * dt;
@@ -590,6 +602,8 @@ function updateParticles(dt) {
     if (p.life <= 0) { particles.splice(i, 1); continue; }
     const k = Math.exp(-p.drag * dt);
     p.vx *= k; p.vy *= k;
+    if (p.g) p.vy += p.g * dt;
+    if (p.vr) p.rot += p.vr * dt;
     p.x += p.vx * dt; p.y += p.vy * dt;
   }
 }
@@ -598,14 +612,94 @@ function drawParticles(additive) {
   for (const p of particles) {
     if (p.add !== additive) continue;
     const a = p.life / p.max;
-    ctx.globalAlpha = a * p.alpha;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, Math.max(0.3, p.size * (0.4 + 0.6 * a)), 0, TAU);
-    ctx.fill();
+    let al = a * p.alpha;
+    if (p.tw) al *= 0.5 + 0.5 * Math.sin(time * p.tw + p.ph);   // تلألؤ
+    if (al <= 0.01) continue;
+    ctx.globalAlpha = Math.min(1, al);
+    const sz = p.fixed ? p.size : p.grow ? p.size * (1 + p.grow * (1 - a)) : Math.max(0.3, p.size * (0.4 + 0.6 * a));
+    const sh = p.shape;
+    if (sh === 'circle') {
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, sz, 0, TAU); ctx.fill();
+    } else if (sh === 'mist') {
+      ctx.drawImage(glowSprite(p.color), p.x - sz, p.y - sz, sz * 2, sz * 2);
+    } else if (sh === 'twinkle') {
+      const z = Math.max(0.6, sz);
+      ctx.fillStyle = p.color;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.beginPath();
+      ctx.moveTo(0, -z * 1.8); ctx.lineTo(z * 0.35, 0); ctx.lineTo(0, z * 1.8); ctx.lineTo(-z * 0.35, 0); ctx.closePath();
+      ctx.moveTo(-z * 1.8, 0); ctx.lineTo(0, z * 0.35); ctx.lineTo(z * 1.8, 0); ctx.lineTo(0, -z * 0.35); ctx.closePath();
+      ctx.fill(); ctx.restore();
+    } else if (sh === 'streak') {
+      const sp = Math.hypot(p.vx, p.vy) || 1, len = Math.min(14, 2 + sp * 0.05);
+      ctx.strokeStyle = p.color; ctx.lineWidth = Math.max(0.8, sz * 0.55); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx / sp * len, p.y - p.vy / sp * len); ctx.stroke();
+    } else {   // شكل شخصية (ألماس/نجمة/شبح...) كأثر أو صورة لاحقة
+      ctx.fillStyle = p.color;
+      skinPath(ctx, sh, p.x, p.y, sz, p.rot);
+      ctx.fill();
+    }
   }
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
+}
+
+/* ---------- آثار الحركة (لكل شخصية أثرها) ---------- */
+const TRAIL_RATE = { glow: 40, ember: 72, gem: 30, star: 36, gold: 50, mist: 24 };
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function trailOne(kind, x, y, ux, uy, qx, qy) {
+  const bx = -ux, by = -uy;   // اتجاه الخلف
+  if (kind === 'ember') {
+    const spd = rand(50, 170);
+    emit(x, y, bx * spd + qx * rand(-90, 90), by * spd + qy * rand(-90, 90) - 20, rand(0.3, 0.7), rand(1.4, 2.6),
+      pick(['#ffe0a0', '#ffb25e', '#ff6a3a']), { shape: 'streak', drag: 1.8, g: -40 });
+    if (Math.random() < 0.5) emit(x, y, bx * 30 + rand(-25, 25), by * 30 + rand(-25, 25), rand(0.4, 0.7), rand(2.5, 4), '#ff7a45', { alpha: 0.8, g: -60 });
+    if (Math.random() < 0.22) emit(x, y, bx * 10 + rand(-15, 15), by * 10 - 25 + rand(-10, 10), rand(0.7, 1.1), rand(7, 10), '#2a1210',
+      { shape: 'mist', add: false, alpha: 0.4, grow: 1.2, drag: 1.5 });
+  } else if (kind === 'gem') {
+    emit(x, y, bx * rand(10, 60) + qx * rand(-35, 35), by * rand(10, 60) + qy * rand(-35, 35), rand(0.55, 0.9), rand(3.5, 6.5),
+      pick(['#7dffb4', '#4dffa0', '#d6ffe8']), { shape: 'diamond', rot: rand(0, TAU), vr: rand(-6, 6), drag: 2.2 });
+    if (Math.random() < 0.5) emit(x, y, bx * 15, by * 15, 0.4, 4, '#4dffa0', { alpha: 0.35 });
+  } else if (kind === 'star') {
+    emit(x, y, rand(-30, 30) + bx * rand(0, 40), rand(-30, 30) + by * rand(0, 40), rand(0.6, 1.1), rand(2, 4.2),
+      pick(['#ffffff', '#e0b8ff', '#b66bff']), { shape: 'twinkle', rot: rand(0, TAU), vr: rand(-3, 3), drag: 1.8, tw: rand(14, 22) });
+    if (Math.random() < 0.4) emit(x, y, bx * 20, by * 20, 0.5, 3.5, '#b66bff', { alpha: 0.4 });
+  } else if (kind === 'gold') {
+    emit(x, y, rand(-35, 35) + bx * rand(5, 45), rand(-35, 35) + by * rand(5, 45), rand(0.6, 1.1), rand(1.8, 3.8),
+      pick(['#fff4c2', '#ffd86b', '#ffbf2e']), { shape: 'twinkle', rot: rand(0, TAU), vr: rand(-4, 4), drag: 1.6, g: 70, tw: rand(22, 36) });
+    if (Math.random() < 0.5) emit(x, y, rand(-25, 25) + bx * 20, rand(-25, 25) + by * 20, rand(0.4, 0.8), rand(1.2, 2.2), '#ffd86b', { g: 90, alpha: 0.9 });
+  } else if (kind === 'mist') {
+    emit(x, y, bx * 15 + rand(-10, 10), by * 15 - 8 + rand(-10, 10), rand(0.8, 1.3), rand(9, 14), '#cfd8ff',
+      { shape: 'mist', alpha: 0.2, grow: 1.6, drag: 1.6 });
+    if (Math.random() < 0.3) emit(x, y, rand(-14, 14), rand(-14, 14) - 20, rand(0.6, 1), rand(1.5, 2.5), '#ffffff', { alpha: 0.35, g: -30 });
+  } else {   // glow: وهج نور
+    emit(x, y, bx * 20 + rand(-12, 12), by * 20 + rand(-12, 12), rand(0.35, 0.6), rand(3.5, 6), skin.glow, { alpha: 0.6, drag: 2.5 });
+    if (Math.random() < 0.18) emit(x, y, rand(-20, 20), rand(-20, 20), 0.5, rand(2.2, 3.2), '#ffffff', { shape: 'twinkle', rot: rand(0, TAU), drag: 3 });
+  }
+}
+function emitTrail(dt, sp) {
+  const dashing = dashT > 0;
+  if (!dashing && sp < 90) { trailAcc = 0; return; }
+  const kind = skin.trail || 'glow';
+  const inten = dashing ? 2.2 : clamp(sp / PLAYER.maxSpeed, 0.35, 1);
+  trailAcc += dt * (TRAIL_RATE[kind] || 40) * inten * (reduceMotion ? 0.5 : 1);
+  const ux = sp > 1 ? player.vx / sp : Math.cos(player.face), uy = sp > 1 ? player.vy / sp : Math.sin(player.face);
+  const qx = -uy, qy = ux;
+  let n = 0;
+  while (trailAcc >= 1 && n++ < 6) {
+    trailAcc -= 1;
+    const back = rand(0.2, 1) * pR * 0.9, side = rand(-1, 1) * pR * 0.55;
+    trailOne(kind, player.x - ux * back + qx * side, player.y - uy * back + qy * side, ux, uy, qx, qy);
+  }
+  if (trailAcc > 3) trailAcc = 0;
+  // صور لاحقة: شبه شفافة للشبح دائمًا، ولكل الشخصيات أثناء الاندفاع
+  ghostT -= dt;
+  if (ghostT <= 0 && (dashing || kind === 'mist')) {
+    ghostT = dashing ? 0.03 : 0.07;
+    emit(player.x, player.y, 0, 0, dashing ? 0.3 : 0.4, pR, dashing ? skin.glow : '#dfe6ff',
+      { shape: skin.shape, rot: player.face, fixed: true, alpha: dashing ? 0.32 : 0.22, drag: 5 });
+  }
 }
 
 /* ---------- الإدخال ---------- */
@@ -616,11 +710,12 @@ const MOVE_KEYS = {
   ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd'
 };
 addEventListener('keydown', e => {
+  if (infoOpen) { if (e.code === 'Escape') closeInstallInfo(); return; }
   if (shopOpen) { if (e.code === 'Escape') closeShop(); return; }
   if (MOVE_KEYS[e.code]) { keys.add(MOVE_KEYS[e.code]); e.preventDefault(); return; }
   if (e.code === 'Enter' || e.code === 'Space') {
     const a = document.activeElement;
-    if (state !== 'play' && a && (a.id === 'shopBtn' || a.id === 'shopBtn2')) return;   // اترك الزر يعمل بشكل طبيعي
+    if (state !== 'play' && a && (a.id === 'shopBtn' || a.id === 'shopBtn2' || a.id === 'installBtn')) return;   // اترك الزر يعمل بشكل طبيعي
     e.preventDefault();
     if (state === 'play') { if (e.code === 'Space' && !e.repeat) { if (a && a.blur) a.blur(); dash(); } }
     else if (state === 'menu') startGame();
@@ -632,6 +727,8 @@ addEventListener('keydown', e => {
     toggleMute();
   } else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
     dash();
+  } else if (e.code === 'KeyE' || e.code === 'KeyQ') {
+    if (!e.repeat) pulse();
   }
 });
 addEventListener('keyup', e => { if (MOVE_KEYS[e.code]) keys.delete(MOVE_KEYS[e.code]); });
@@ -686,22 +783,342 @@ function resize() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   vigNormal = makeVignette('0,0,6', 0.92);
   vigDanger = makeVignette('190,10,70', 0.75);
-  player.x = clamp(player.x, pR, W - pR);
-  player.y = clamp(player.y, pR, H - pR);
-  shadow.x = clamp(shadow.x, SHADOW.r, W - SHADOW.r);
-  shadow.y = clamp(shadow.y, SHADOW.r, H - SHADOW.r);
+  if (!mz.on) {
+    player.x = clamp(player.x, pR, W - pR);
+    player.y = clamp(player.y, pR, H - pR);
+    shadow.x = clamp(shadow.x, sR, W - sR);
+    shadow.y = clamp(shadow.y, sR, H - sR);
+  }
 }
 addEventListener('resize', resize);
 
+/* =====================================================================
+   🧩 أرض المتاهة — طور المستوى 51 فما فوق
+   متاهة كبيرة بجدران صلبة + كاميرا تتبّع + شخصيات أصغر + ظل بسرعة 40%
+   ===================================================================== */
+const MAZE = {
+  unlockLevel: 51,      // يُتاح الطور عند بلوغ هذا المستوى (51 = بعد تجاوز المستوى 50)
+  cols: 40, rows: 40,   // حجم المتاهة بالخانات (40×40 = 1600 خانة)
+  cell: 100,            // حجم الخانة بوحدات العالم
+  wall: 10,             // سماكة الجدار
+  loops: 0.10,          // نسبة الجدران المفتوحة عمدًا لصنع حلقات (تمنع الطرق المسدودة القاتلة)
+  charScale: 0.6,       // تصغير اللاعب والظل
+  itemScale: 0.8,       // تصغير الجواهر وأيقونات القوى
+  shadowSpeed: 0.4,     // سرعة الظل = 40% من العادية (إبطاء 60%)
+  levelBonus: 25,       // مكافأة الارتقاء داخل المتاهة (بدل 5 × المستوى)
+  minimap: true         // خريطة مصغّرة للمناطق التي استكشفتها
+};
+let nextMode = 'classic';                 // classic | maze
+let gemsBase = 0;                         // جواهر افتراضية تجعل المتاهة تبدأ من المستوى 51
+let charK = 1, sR = SHADOW.r;             // مقياس الشخصيات ونصف قطر الظل الحالي
+let maxLevel = 0, mazeBest = 0;           // أعلى مستوى وصل إليه اللاعب، وأعلى نتيجة في المتاهة
+try {
+  maxLevel = parseInt(localStorage.getItem('sh_maxlevel'), 10) || 0;
+  mazeBest = parseInt(localStorage.getItem('sh_mazebest'), 10) || 0;
+} catch (e) {}
+const mz = { on: false, H: null, V: null, dist: null, q: null, vis: null, pc: -1, W: 0, Hh: 0, mm: null, mmx: null };
+const cam = { x: 0, y: 0, zoom: 1 };
+
+const gemsEff = () => gemsCount + gemsBase;
+const ik = () => mz.on ? MAZE.itemScale : 1;
+const mcx = x => clamp(Math.floor(x / MAZE.cell), 0, MAZE.cols - 1);
+const mcy = y => clamp(Math.floor(y / MAZE.cell), 0, MAZE.rows - 1);
+const mazeUnlocked = () => maxLevel >= MAZE.unlockLevel || levelOf(best) >= MAZE.unlockLevel;   // يحترم تقدّم اللاعب القديم
+function noteLevel(l) {                                  // يحفظ أعلى مستوى (لفتح الطور)
+  if (l > maxLevel) { maxLevel = l; store('sh_maxlevel', l); }
+}
+
+/* ---------- توليد المتاهة: DFS + حلقات إضافية ---------- */
+function mazeGenerate() {
+  const { cols, rows } = MAZE;
+  const Hh = new Uint8Array((rows + 1) * cols).fill(1);    // جدران أفقية (الصف r = الخط y=r)
+  const Vv = new Uint8Array(rows * (cols + 1)).fill(1);    // جدران رأسية (العمود c = الخط x=c)
+  const seen = new Uint8Array(cols * rows);
+  const stack = [(rows >> 1) * cols + (cols >> 1)];
+  seen[stack[0]] = 1;
+  while (stack.length) {
+    const cur = stack[stack.length - 1], c = cur % cols, r = (cur / cols) | 0, nb = [];
+    if (c > 0 && !seen[cur - 1]) nb.push(0);
+    if (c < cols - 1 && !seen[cur + 1]) nb.push(1);
+    if (r > 0 && !seen[cur - cols]) nb.push(2);
+    if (r < rows - 1 && !seen[cur + cols]) nb.push(3);
+    if (!nb.length) { stack.pop(); continue; }
+    const d = nb[(Math.random() * nb.length) | 0];
+    let n;
+    if (d === 0)      { Vv[r * (cols + 1) + c] = 0;     n = cur - 1; }
+    else if (d === 1) { Vv[r * (cols + 1) + c + 1] = 0; n = cur + 1; }
+    else if (d === 2) { Hh[r * cols + c] = 0;           n = cur - cols; }
+    else              { Hh[(r + 1) * cols + c] = 0;     n = cur + cols; }
+    seen[n] = 1; stack.push(n);
+  }
+  for (let r = 0; r < rows; r++) for (let c = 1; c < cols; c++) {
+    const i = r * (cols + 1) + c; if (Vv[i] && Math.random() < MAZE.loops) Vv[i] = 0;
+  }
+  for (let r = 1; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const i = r * cols + c; if (Hh[i] && Math.random() < MAZE.loops) Hh[i] = 0;
+  }
+  mz.H = Hh; mz.V = Vv;
+}
+// هل الخانة i مفتوحة نحو الاتجاه d؟ (0 يسار، 1 يمين، 2 أعلى، 3 أسفل)
+function mzOpen(i, d) {
+  const cols = MAZE.cols, c = i % cols, r = (i / cols) | 0;
+  return d === 0 ? !mz.V[r * (cols + 1) + c] : d === 1 ? !mz.V[r * (cols + 1) + c + 1]
+       : d === 2 ? !mz.H[r * cols + c] : !mz.H[(r + 1) * cols + c];
+}
+const mzNb = (i, d) => d === 0 ? i - 1 : d === 1 ? i + 1 : d === 2 ? i - MAZE.cols : i + MAZE.cols;
+
+// خريطة المسافات (بالخانات) من اللاعب: يتبعها الظل ويُختار منها موضع الجواهر
+function mazeBFS(src) {
+  const out = mz.dist, q = mz.q;
+  out.fill(-1);
+  let h = 0, t = 0; q[t++] = src; out[src] = 0;
+  while (h < t) {
+    const i = q[h++];
+    for (let d = 0; d < 4; d++) if (mzOpen(i, d)) {
+      const n = mzNb(i, d);
+      if (out[n] < 0) { out[n] = out[i] + 1; q[t++] = n; }
+    }
+  }
+}
+function mazeRefresh(force) {
+  const pc = mcy(player.y) * MAZE.cols + mcx(player.x);
+  if (pc === mz.pc && !force) return;
+  mz.pc = pc;
+  mazeBFS(pc);
+  const c0 = pc % MAZE.cols, r0 = (pc / MAZE.cols) | 0;          // يكشف ما حوله على الخريطة المصغّرة
+  for (let r = Math.max(0, r0 - 2); r <= Math.min(MAZE.rows - 1, r0 + 2); r++)
+    for (let c = Math.max(0, c0 - 2); c <= Math.min(MAZE.cols - 1, c0 + 2); c++) {
+      const i = r * MAZE.cols + c;
+      if (!mz.vis[i]) { mz.vis[i] = 1; mazeMiniCell(i); }
+    }
+}
+function mazeMiniCell(i) {
+  if (!mz.mmx) return;
+  const cols = MAZE.cols, c = i % cols, r = (i / cols) | 0, g = mz.mmx, s = 3, x = c * s, y = r * s;
+  g.fillStyle = 'rgba(125,249,255,.10)'; g.fillRect(x, y, s, s);
+  g.fillStyle = 'rgba(200,235,255,.9)';
+  if (mz.H[r * cols + c]) g.fillRect(x, y, s, 1);
+  if (mz.H[(r + 1) * cols + c]) g.fillRect(x, y + s - 1, s, 1);
+  if (mz.V[r * (cols + 1) + c]) g.fillRect(x, y, 1, s);
+  if (mz.V[r * (cols + 1) + c + 1]) g.fillRect(x + s - 1, y, 1, s);
+}
+
+/* ---------- الاصطدام بالجدران (دائرة ضد مستطيلات) ---------- */
+function mzPush(o, r, e, x0, y0, x1, y1) {
+  const px = clamp(o.x, x0, x1), py = clamp(o.y, y0, y1);
+  const dx = o.x - px, dy = o.y - py, d2 = dx * dx + dy * dy;
+  if (d2 >= r * r) return false;
+  let nx, ny, push;
+  if (d2 > 1e-8) { const d = Math.sqrt(d2); nx = dx / d; ny = dy / d; push = r - d; }
+  else {                                                   // المركز داخل الجدار: اخرج من أقرب حافة
+    const l = o.x - x0, rt = x1 - o.x, t = o.y - y0, b = y1 - o.y, m = Math.min(l, rt, t, b);
+    if (m === l) { nx = -1; ny = 0; push = l + r; } else if (m === rt) { nx = 1; ny = 0; push = rt + r; }
+    else if (m === t) { nx = 0; ny = -1; push = t + r; } else { nx = 0; ny = 1; push = b + r; }
+  }
+  o.x += nx * push; o.y += ny * push;
+  const vn = o.vx * nx + o.vy * ny;                        // ألغِ مركّبة السرعة داخل الجدار (انزلاق)
+  if (vn < 0) { o.vx -= (1 + e) * vn * nx; o.vy -= (1 + e) * vn * ny; }
+  return true;
+}
+function mazeCollide(o, r, e) {
+  const { cols, rows, cell } = MAZE, hw = MAZE.wall / 2;
+  for (let pass = 0; pass < 2; pass++) {
+    const c0 = mcx(o.x), r0 = mcy(o.y);
+    let hit = false;
+    for (let rr = r0; rr <= r0 + 1; rr++) for (let cc = c0 - 1; cc <= c0 + 1; cc++) {
+      if (cc < 0 || cc >= cols || rr > rows || !mz.H[rr * cols + cc]) continue;
+      if (mzPush(o, r, e, cc * cell - hw, rr * cell - hw, (cc + 1) * cell + hw, rr * cell + hw)) hit = true;
+    }
+    for (let rr = r0 - 1; rr <= r0 + 1; rr++) for (let cc = c0; cc <= c0 + 1; cc++) {
+      if (rr < 0 || rr >= rows || cc > cols || !mz.V[rr * (cols + 1) + cc]) continue;
+      if (mzPush(o, r, e, cc * cell - hw, rr * cell - hw, cc * cell + hw, (rr + 1) * cell + hw)) hit = true;
+    }
+    if (!hit) break;
+  }
+}
+// حركة بخطوات صغيرة كي لا يخترق أي جسم الجدار حتى أثناء الاندفاع
+function mazeStep(o, r, e, dt) {
+  const sp = Math.hypot(o.vx, o.vy), n = clamp(Math.ceil(sp * dt / (r * 0.5)), 1, 16), h = dt / n;
+  for (let i = 0; i < n; i++) { o.x += o.vx * h; o.y += o.vy * h; mazeCollide(o, r, e); }
+  o.x = clamp(o.x, r, mz.W - r); o.y = clamp(o.y, r, mz.Hh - r);
+}
+
+/* ---------- الظل: يتبع أقصر مسار داخل الممرات ---------- */
+function mazeShadowTarget() {
+  const cols = MAZE.cols, cell = MAZE.cell;
+  const si = mcy(shadow.y) * cols + mcx(shadow.x), d0 = mz.dist[si];
+  const ahead = { x: player.x + player.vx * 0.12, y: player.y + player.vy * 0.12 };
+  if (d0 <= 0) return ahead;                                 // في خانة اللاعب نفسها: مطاردة مباشرة
+  let nb = -1, bd = d0;
+  for (let d = 0; d < 4; d++) if (mzOpen(si, d)) {
+    const n = mzNb(si, d);
+    if (mz.dist[n] >= 0 && mz.dist[n] < bd) { bd = mz.dist[n]; nb = n; }
+  }
+  if (nb < 0) return ahead;
+  if (bd === 0) return ahead;                                // الخانة التالية هي خانة اللاعب
+  return { x: (nb % cols + 0.5) * cell, y: ((nb / cols | 0) + 0.5) * cell };
+}
+// الخطر يُقاس بطول المسار (لا بالخط المستقيم عبر الجدار)
+function mazeDangerDist(dist) {
+  const d = mz.dist[mcy(shadow.y) * MAZE.cols + mcx(shadow.x)];
+  return d < 0 ? dist : Math.max(dist, d * MAZE.cell * 0.8);
+}
+
+/* ---------- الجواهر والقوى داخل المتاهة ---------- */
+function mazePick(minD, maxD, minFromShadow) {
+  const cols = MAZE.cols, n = cols * MAZE.rows;
+  const si = mcy(shadow.y) * cols + mcx(shadow.x), sc = si % cols, sr = (si / cols) | 0;
+  for (let lo = minD; lo >= 1; lo = lo > 3 ? lo - 3 : lo - 1) {
+    const c = [];
+    for (let i = 0; i < n; i++) {
+      const d = mz.dist[i];
+      if (d >= lo && d <= maxD && Math.max(Math.abs(i % cols - sc), Math.abs(((i / cols) | 0) - sr)) >= minFromShadow) c.push(i);
+    }
+    if (c.length) return c[(Math.random() * c.length) | 0];
+  }
+  return mz.pc;
+}
+function mazePos(i) {
+  const cols = MAZE.cols, cell = MAZE.cell;
+  return { x: (i % cols + 0.5 + rand(-0.2, 0.2)) * cell, y: ((i / cols | 0) + 0.5 + rand(-0.2, 0.2)) * cell };
+}
+function mazeSpawnGem() {
+  const i = mazePick(8, 24, 4), p = mazePos(i), d = mz.dist[i];
+  const hues = [175, 290, 45, 330, 140, 210];
+  const ttl = clamp(d * MAZE.cell / (PLAYER.maxSpeed * 0.55) + 6, 12, 70);   // مهلة تناسب طول الطريق
+  gem = { x: p.x, y: p.y, h: hues[Math.floor(Math.random() * hues.length)], born: time, phase: rand(0, TAU), ttl, left: ttl };
+}
+function mazeSpawnPower() {
+  const p = mazePos(mazePick(5, 16, 3)), life = POWER_LIFE * 2.2;
+  power = { x: p.x, y: p.y, life, max: life, born: time, kind: (!shield && Math.random() < 0.4) ? 'shield' : 'ice' };
+}
+
+/* ---------- بدء جولة المتاهة ---------- */
+function mazeSetup() {
+  const { cols, rows, cell } = MAZE;
+  gemsBase = (MAZE.unlockLevel - 1) * LEVEL_STEP;            // تبدأ من المستوى 51
+  level = levelOf(gemsBase);
+  themeFrom = themeTo = THEMES[(level - 1) % THEMES.length]; themeT = 1;
+  mazeGenerate();
+  mz.W = cols * cell; mz.Hh = rows * cell;
+  mz.dist = new Int16Array(cols * rows); mz.q = new Int32Array(cols * rows); mz.vis = new Uint8Array(cols * rows);
+  mz.mm = document.createElement('canvas'); mz.mm.width = cols * 3; mz.mm.height = rows * 3; mz.mmx = mz.mm.getContext('2d');
+  const sc = (rows >> 1) * cols + (cols >> 1);
+  player.x = (sc % cols + 0.5) * cell; player.y = ((sc / cols | 0) + 0.5) * cell;
+  player.vx = player.vy = 0;
+  mazeRefresh(true);
+  let cand = [], far = sc;
+  for (let i = 0; i < cols * rows; i++) { if (mz.dist[i] >= 26 && mz.dist[i] <= 38) cand.push(i); if (mz.dist[i] > mz.dist[far]) far = i; }
+  const si = cand.length ? cand[(Math.random() * cand.length) | 0] : far;
+  shadow.x = (si % cols + 0.5) * cell; shadow.y = ((si / cols | 0) + 0.5) * cell;
+  shadow.vx = shadow.vy = 0; shadow.appear = 0;
+  mazeCamera(0, true);
+  showBanner('أرض المتاهة 🧩', 'المستوى ' + level + ' — الظل أبطأ لكنه لا يتوقف');
+}
+
+/* ---------- الكاميرا (تتبّع ناعم مع استشراف بسيط) ---------- */
+const mazeZoom = () => clamp(Math.min(W, H) / (MAZE.cell * 5.2), 0.62, 1.05);
+function mazeCamera(dt, snap) {
+  const z = mazeZoom();
+  cam.zoom = snap ? z : lerp(cam.zoom, z, 1 - Math.exp(-4 * dt));
+  const vw = W / cam.zoom, vh = H / cam.zoom, pad = 60;
+  const lx = clamp(player.vx * 0.25, -70, 70), ly = clamp(player.vy * 0.25, -70, 70);
+  let tx = player.x + lx - vw / 2, ty = player.y + ly - (H / 2 + 28) / cam.zoom;
+  tx = vw >= mz.W + pad * 2 ? (mz.W - vw) / 2 : clamp(tx, -pad, mz.W - vw + pad);
+  ty = vh >= mz.Hh + pad * 2 ? (mz.Hh - vh) / 2 : clamp(ty, -pad, mz.Hh - vh + pad);
+  if (snap) { cam.x = tx; cam.y = ty; return; }
+  const k = 1 - Math.exp(-6.5 * dt);
+  cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+}
+
+/* ---------- الرسم ---------- */
+function drawMaze() {
+  const th = themeMix(), { cols, rows, cell, wall } = MAZE;
+  const vw = W / cam.zoom, vh = H / cam.zoom;
+  const c0 = Math.max(0, Math.floor(cam.x / cell) - 1), c1 = Math.min(cols - 1, Math.floor((cam.x + vw) / cell) + 1);
+  const r0 = Math.max(0, Math.floor(cam.y / cell) - 1), r1 = Math.min(rows - 1, Math.floor((cam.y + vh) / cell) + 1);
+  ctx.save();
+  ctx.beginPath();
+  for (let r = r0; r <= r1 + 1 && r <= rows; r++) for (let c = c0; c <= c1; c++)
+    if (mz.H[r * cols + c]) { ctx.moveTo(c * cell, r * cell); ctx.lineTo((c + 1) * cell, r * cell); }
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1 + 1 && c <= cols; c++)
+    if (mz.V[r * (cols + 1) + c]) { ctx.moveTo(c * cell, r * cell); ctx.lineTo(c * cell, (r + 1) * cell); }
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = `rgba(${rgb(th.grid)},0.13)`; ctx.lineWidth = wall + 18; ctx.stroke();   // توهّج
+  ctx.strokeStyle = `rgba(${rgb(th.grid)},0.95)`; ctx.lineWidth = wall; ctx.stroke();        // حافة نيون
+  ctx.strokeStyle = `rgba(${rgb(th.bot)},0.94)`; ctx.lineWidth = wall - 4; ctx.stroke();      // جوف داكن
+  ctx.restore();
+}
+// عند نبضة النور: يُرسم أقصر مسار حقيقي إلى الجوهرة عبر الممرات
+function drawMazePath(f) {
+  if (!gem) return;
+  const cols = MAZE.cols, cell = MAZE.cell;
+  let i = mcy(gem.y) * cols + mcx(gem.x), d = mz.dist[i];
+  if (d < 0 || d > 400) return;
+  const pts = [{ x: gem.x, y: gem.y }];
+  while (d > 0) {
+    let nx = -1;
+    for (let k = 0; k < 4; k++) if (mzOpen(i, k) && mz.dist[mzNb(i, k)] === d - 1) { nx = mzNb(i, k); break; }
+    if (nx < 0) break;
+    i = nx; d--; pts.push({ x: (i % cols + 0.5) * cell, y: ((i / cols | 0) + 0.5) * cell });
+  }
+  pts.push({ x: player.x, y: player.y });
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = `hsla(${gem.h},100%,75%,${0.75 * f})`; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.setLineDash([2, 11]); ctx.lineDashOffset = -time * 50;
+  ctx.beginPath();
+  pts.forEach((p, k) => k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+  ctx.stroke();
+  ctx.restore();
+}
+function gk(o, fn) {                                        // رسم الجواهر/القوى بحجم أصغر داخل المتاهة
+  if (!mz.on) { fn(o); return; }
+  ctx.save(); ctx.translate(o.x, o.y); ctx.scale(MAZE.itemScale, MAZE.itemScale); ctx.translate(-o.x, -o.y);
+  fn(o); ctx.restore();
+}
+function drawMiniMap() {
+  if (!MAZE.minimap || !mz.on || !mz.mm || state === 'menu') return;
+  const s = 96, x = 12, y = H - s - 74, kx = s / mz.W, ky = s / mz.Hh;
+  ctx.save();
+  ctx.fillStyle = 'rgba(5,3,13,.62)'; ctx.fillRect(x - 3, y - 3, s + 6, s + 6);
+  ctx.strokeStyle = 'rgba(125,249,255,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x - 3, y - 3, s + 6, s + 6);
+  ctx.drawImage(mz.mm, x, y, s, s);
+  const seen = o => revealT > 0 || mz.vis[mcy(o.y) * MAZE.cols + mcx(o.x)];
+  if (gem && seen(gem)) { ctx.fillStyle = '#ffd86b'; ctx.beginPath(); ctx.arc(x + gem.x * kx, y + gem.y * ky, 2.4, 0, TAU); ctx.fill(); }
+  if (shadow.appear > 0.3 && seen(shadow)) { ctx.fillStyle = '#b66bff'; ctx.beginPath(); ctx.arc(x + shadow.x * kx, y + shadow.y * ky, 3, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = '#7df9ff'; ctx.beginPath(); ctx.arc(x + player.x * kx, y + player.y * ky, 2.6, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- واجهة الطور (القائمة وشاشة النهاية) ---------- */
+const mzUI = { btn: $('mazeBtn'), mode2: $('modeBtn2') };
+function updateMazeUI() {
+  const un = mazeUnlocked();
+  mzUI.btn.disabled = !un;
+  mzUI.btn.textContent = un ? '🧩 أرض المتاهة' : '🔒 أرض المتاهة (المستوى ' + MAZE.unlockLevel + ')';
+  mzUI.btn.title = un ? '' : 'أعلى مستوى وصلت إليه: ' + Math.max(maxLevel, levelOf(best));
+  if (mz.on) { mzUI.mode2.hidden = false; mzUI.mode2.textContent = '↩ الطور الكلاسيكي'; }
+  else { mzUI.mode2.hidden = !un; mzUI.mode2.textContent = '🧩 أرض المتاهة'; }
+}
+mzUI.btn.addEventListener('click', () => { if (!mazeUnlocked()) return; nextMode = 'maze'; startGame(); });
+mzUI.mode2.addEventListener('click', () => {
+  if (!mz.on && !mazeUnlocked()) return;
+  nextMode = mz.on ? 'classic' : 'maze'; startGame();
+});
+// Enter/Space على هذين الزرين يفعّل الزر فقط (لا يبدأ جولة ثانية من مستمع لوحة المفاتيح العام)
+addEventListener('keydown', e => {
+  const a = document.activeElement;
+  if ((e.code === 'Enter' || e.code === 'Space') && a && (a.id === 'mazeBtn' || a.id === 'modeBtn2')) e.stopPropagation();
+}, true);
+
 /* ---------- منطق اللعبة ---------- */
 function shadowMaxSpeed() {
-  const f = Math.min(SHADOW.capFactor, SHADOW.baseFactor * (1 + SHADOW.perGem * gemsCount));
-  let spd = PLAYER.maxSpeed * f;
-  if (isMazeActive()) spd *= MAZE_SHADOW_SPEED_MUL;
-  return spd;
+  const f = Math.min(SHADOW.capFactor, SHADOW.baseFactor * (1 + SHADOW.perGem * gemsEff()));
+  return PLAYER.maxSpeed * f;
 }
 function shadowMaxForce() {
-  return SHADOW.baseForce * Math.min(2, 1 + SHADOW.forcePerGem * gemsCount);
+  return SHADOW.baseForce * Math.min(2, 1 + SHADOW.forcePerGem * gemsEff());
 }
 function freePoint(minFromPlayer, minFromShadow) {
   let x = W / 2, y = H / 2;
@@ -709,23 +1126,25 @@ function freePoint(minFromPlayer, minFromShadow) {
     x = rand(50, W - 50); y = rand(HUD_SAFE, H - 50);
     if (Math.hypot(x - player.x, y - player.y) > minFromPlayer &&
         Math.hypot(x - shadow.x, y - shadow.y) > minFromShadow &&
-        !(y > H - 110 && (x > W - 110 || x < 70))) break;   // بعيدًا عن زرّي الاندفاع والصوت
+        !(y > H - 110 && (x > W - 190 || x < 70))) break;   // بعيدًا عن زرّي الاندفاع والصوت
   }
   return { x, y };
 }
 function spawnGem() {
+  if (mz.on) { mazeSpawnGem(); return; }
   const p = freePoint(Math.min(200, W * 0.3), 120);
   const hues = [175, 290, 45, 330, 140, 210];
   const ttl = level >= GEM_TTL_LEVEL ? Math.max(5, 12 - level) : 0;   // من المستوى ٣ تختفي الجوهرة إن تأخرت
   gem = { x: p.x, y: p.y, h: hues[Math.floor(Math.random() * hues.length)], born: time, phase: rand(0, TAU), ttl, left: ttl };
 }
 function spawnPower() {
+  if (mz.on) { mazeSpawnPower(); return; }
   const p = freePoint(Math.min(180, W * 0.25), 140);
   power = { x: p.x, y: p.y, life: POWER_LIFE, born: time, kind: (!shield && Math.random() < 0.4) ? 'shield' : 'ice' };
 }
 function nextPowerDelay() {
   // كلما زادت الجواهر أصبحت قوة الطوارئ أندر (حتى الضعف) لرفع الصعوبة
-  return rand(10, 15) * Math.min(2, 1 + 0.03 * gemsCount);
+  return rand(10, 15) * Math.min(2, 1 + 0.03 * gemsEff());
 }
 
 /* ---------- المستويات والكومبو والعملات ---------- */
@@ -740,7 +1159,9 @@ function themeMix() {
 }
 function applySkin() {
   skin = SKINS.find(s => s.id === skinId) || SKINS[0];
-  refreshEntitySizes();
+  charK = mz.on ? MAZE.charScale : 1;
+  sR = SHADOW.r * charK;
+  pR = PLAYER.r * (skin.radius || 1) * charK;
 }
 function refreshCoinTexts() {
   el.menuCoins.textContent = 'رصيدك 🪙 ' + coins;
@@ -751,7 +1172,8 @@ function addCoins(n) {
   saveCoins();
 }
 function floatText(text, x, y, color) {
-  floats.push({ text, x: clamp(x, 50, W - 50), y: clamp(y, 130, H - 20), life: 1, max: 1, color });
+  floats.push(mz.on ? { text, x, y, life: 1, max: 1, color }
+                    : { text, x: clamp(x, 50, W - 50), y: clamp(y, 130, H - 20), life: 1, max: 1, color });
 }
 function showBanner(title, sub) {
   el.bannerTitle.textContent = title;
@@ -769,26 +1191,27 @@ function collectGem() {
   const g = gem;
   gemsCount++;
   combo = comboT > 0 ? combo + 1 : 1;
-  comboT = COMBO_TIME;
+  comboT = comboTime(); comboWarned = false;
+  if (combo === 6) comboBeat = 0.3;
+  stats.maxCombo = Math.max(stats.maxCombo, combo);
   const mult = comboMult();
   const gain = Math.max(1, Math.round(mult * (skin.coinMul || 1)));
   addCoins(gain);
-  sfx.gem(gemsCount);
+  sfx.gem(combo);
   burst(g.x, g.y, 30, `hsl(${g.h},100%,70%)`, 300, 4);
   burst(g.x, g.y, 10, '#ffffff', 200, 2.5);
   floatText(mult > 1 ? `+${gain} ×${mult}` : `+${gain}`, g.x, g.y - 24, '#ffd86b');
   if (!reduceMotion) shake = Math.max(shake, 5);
-  const nl = levelOf(gemsCount);
+  const nl = levelOf(gemsEff());
   if (nl > level) levelUp(nl);
   spawnGem();
 }
 
 function levelUp(nl) {
-  const prevMaze = isMazeActive();
-  level = nl;
+  level = nl; noteLevel(nl);
   const th = THEMES[(level - 1) % THEMES.length];
   themeFrom = themeMix(); themeTo = th; themeT = 0;
-  const bonus = 5 * level;
+  const bonus = mz.on ? MAZE.levelBonus : 5 * level;
   addCoins(bonus);
   freezeShadow(1.5);                       // فسحة قصيرة لالتقاط الأنفاس
   sfx.level();
@@ -796,16 +1219,16 @@ function levelUp(nl) {
   floatText(`مكافأة +${bonus}`, player.x, player.y - 44, '#ffe9a8');
   const hint = level === GEM_TTL_LEVEL ? 'من الآن تختفي الجوهرة إن تأخرت عليها'
              : level === LUNGE_LEVEL ? 'احذر! الظل صار ينقضّ بعد إنذار أحمر'
+             : level === MAZE.unlockLevel && !mz.on ? 'فُتح طور «أرض المتاهة» من القائمة 🧩'
              : th.name;
-  if (!prevMaze && isMazeActive()) { enterMazeMode(); showBanner('أرض المتاهة — المستوى ' + level, 'جدران صلبة وكاميرا تتبع • الظل أبطأ 60%'); return; }
   showBanner('المستوى ' + level, hint);
 }
 
 function breakShield() {
-  shield = false; invuln = 1.4;
+  shield = false; invuln = shieldInv(); stats.saves++;
   const dx = shadow.x - player.x, dy = shadow.y - player.y, d = Math.hypot(dx, dy) || 1;
-  const gap = pR + SHADOW.r + 14;
-  shadow.x = player.x + dx / d * gap; shadow.y = player.y + dy / d * gap;
+  const gap = pR + sR + 14;
+  if (!mz.on) { shadow.x = player.x + dx / d * gap; shadow.y = player.y + dy / d * gap; }
   shadow.vx = dx / d * 560; shadow.vy = dy / d * 560;
   lungeWarn = lungeT = 0; lungeCd = Math.max(lungeCd, 3);
   burst(player.x, player.y, 34, '#ffd86b', 340, 4);
@@ -825,9 +1248,48 @@ function dash() {
   }
   const l = Math.hypot(dx, dy) || 1;
   player.vx = dx / l * DASH.speed; player.vy = dy / l * DASH.speed;
-  dashT = DASH.time; dashCd = DASH.cd;
+  dashT = DASH.time; dashCd = dashCdMax(); stats.dashes++;
   sfx.dash();
   burst(player.x, player.y, 14, skin.glow, 220, 4, { life: 0.4 });
+}
+
+function endCombo() {
+  if (combo >= 3) sfx.comboBreak();
+  combo = 0; comboT = 0; comboWarned = false;
+}
+
+/* ---------- نبضة النور ---------- */
+function pulse() {
+  if (state !== 'play' || pulseCd > 0) return;
+  pulseCd = pulseCdMax(); stats.pulses++;
+  waves.push({ x: player.x, y: player.y, t: 0, dur: PULSE.dur, max: pulseRadius(), hit: false, rgb: skin.rgb });
+  revealT = PULSE.reveal;
+  invuln = Math.max(invuln, 0.35);                       // لحظة أمان تضمن نجاح الدفع حتى لو لامسك الظل
+  if (gem && gem.ttl) gem.left = Math.min(gem.ttl, gem.left + 2);
+  sfx.pulse();
+  burst(player.x, player.y, 30, '#ffffff', 380, 3, { life: 0.6 });
+  burst(player.x, player.y, 20, skin.glow, 260, 4, { life: 0.7 });
+  if (!reduceMotion) shake = Math.max(shake, 6);
+  floatText('نبضة نور', player.x, player.y - 44, '#cfeaff');
+}
+// حين تصل حافة الموجة إلى الظل تدفعه بعيدًا وتُربكه لحظات
+function processWaves() {
+  for (const w of waves) {
+    if (w.hit || shadow.appear < 0.3) continue;
+    const p = clamp(w.t / w.dur, 0, 1), r = w.max * (1 - Math.pow(1 - p, 3));
+    const dx = shadow.x - w.x, dy = shadow.y - w.y, d = Math.hypot(dx, dy) || 1;
+    if (d - sR * 0.7 > r) continue;
+    w.hit = true;
+    const k = 1 - clamp(d / (w.max * 1.15), 0, 0.8);      // الأقرب يُدفع أقوى
+    const nx = dx / d, ny = dy / d;
+    if (freezeT > 0) { shadow.x += nx * 110; shadow.y += ny * 110; }   // الظل المتجمّد يُزاح فقط
+    else { const imp = PULSE.push * (0.65 + 0.35 * k); shadow.vx = nx * imp; shadow.vy = ny * imp; shadowStun = PULSE.stun; }
+    lungeWarn = lungeT = 0; lungeCd = Math.max(lungeCd, 3);
+    burst(shadow.x, shadow.y, 18, skin.glow, 260, 4);
+    burst(shadow.x, shadow.y, 8, '#ffffff', 180, 2.5);
+    floatText('ارتدّ الظل!', shadow.x, shadow.y - 40, '#bfe6ff');
+    if (!reduceMotion) shake = Math.max(shake, 7);
+  }
 }
 
 /* ---------- المتجر ---------- */
@@ -837,6 +1299,8 @@ function shopMsg(text, bad) {
 }
 function renderShop() {
   refreshCoinTexts();
+  renderTabs();
+  renderUpgrades();
   el.skinGrid.textContent = '';
   for (const s of SKINS) {
     const isOwned = owned.includes(s.id), isOn = s.id === skinId;
@@ -852,13 +1316,60 @@ function renderShop() {
 
     const h = document.createElement('h3'); h.textContent = s.name;
     const p = document.createElement('p'); p.textContent = s.perk;
+    const tr = document.createElement('span'); tr.className = 'tr'; tr.textContent = 'الأثر: ' + s.trailName;
     const b = document.createElement('button');
     b.textContent = isOn ? 'مختارة' : isOwned ? 'اختر' : 'شراء 🪙 ' + s.price;
     b.disabled = isOn;
     b.addEventListener('click', () => onSkinClick(s));
-    card.append(cv, h, p, b);
+    card.append(cv, h, p, tr, b);
     el.skinGrid.appendChild(card);
   }
+}
+function renderTabs() {
+  const sk = shopTab === 'skins';
+  el.tabSkins.classList.toggle('on', sk); el.tabUpg.classList.toggle('on', !sk);
+  el.tabSkins.setAttribute('aria-selected', sk); el.tabUpg.setAttribute('aria-selected', !sk);
+  el.skinGrid.classList.toggle('hidden', !sk); el.upgGrid.classList.toggle('hidden', sk);
+}
+function setTab(t) { shopTab = t; shopMsg(''); renderShop(); }
+function renderUpgrades() {
+  el.upgGrid.textContent = '';
+  for (const u of UPGRADES) {
+    const lv = upg[u.id], maxed = lv >= MAX_UPG, cost = u.costs[lv];
+    const card = document.createElement('div');
+    card.className = 'skin upg' + (maxed ? ' maxed' : '');
+    card.style.setProperty('--rgb', u.rgb);
+    const ic = document.createElement('div'); ic.className = 'ic'; ic.textContent = u.icon; ic.setAttribute('aria-hidden', 'true');
+    const h = document.createElement('h3'); h.textContent = u.name;
+    const pips = document.createElement('div'); pips.className = 'pips';
+    pips.setAttribute('role', 'img'); pips.setAttribute('aria-label', `المستوى ${lv} من ${MAX_UPG}`);
+    for (let i = 0; i < MAX_UPG; i++) { const d = document.createElement('i'); if (i < lv) d.className = 'f'; pips.appendChild(d); }
+    const p = document.createElement('p');
+    p.textContent = u.label + '\nالآن: ' + u.show(lv) + (maxed ? '' : '\nالتالي: ' + u.show(lv + 1));
+    const b = document.createElement('button');
+    b.textContent = maxed ? 'أقصى مستوى' : 'ترقية 🪙 ' + cost;
+    b.disabled = maxed;
+    if (!maxed && coins < cost) card.classList.add('locked');
+    b.addEventListener('click', () => onUpgClick(u));
+    card.append(ic, h, pips, p, b);
+    el.upgGrid.appendChild(card);
+  }
+}
+function onUpgClick(u) {
+  audioOn();
+  const lv = upg[u.id];
+  if (lv >= MAX_UPG) return;
+  const cost = u.costs[lv];
+  if (coins < cost) {
+    shopMsg(`تحتاج ${cost - coins} عملة إضافية لترقية ${u.name}`, true);
+    sfx.deny();
+    return;
+  }
+  coins -= cost; upg[u.id] = lv + 1;
+  saveCoins(); saveUpg();
+  shopMsg(`تمت ترقية ${u.name} إلى المستوى ${lv + 1}`);
+  sfx.buy();
+  renderShop();
 }
 function onSkinClick(s) {
   audioOn();
@@ -878,138 +1389,6 @@ function onSkinClick(s) {
   skinId = s.id; saveSkin(); applySkin();
   renderShop();
 }
-
-/* ---------- المتجر الثاني (القدرات والترقيات) ---------- */
-const PERKS_SHOP = [
-  { id: "gem_time",   name: "مؤقّت النقاط الممتد",      price: 1500, perk: "يزيد وقت بقاء النقطة قبل انتهاء دائرة المؤقت." },
-  { id: "freeze_ext", name: "تجميد الظل المطوّل",       price: 2000, perk: "يزيد مدة تجميد الظل مع إبقاء حلقة المؤقت حوله." },
-  { id: "start_shld", name: "درع الانطلاقة",            price: 2500, perk: "يبدأ كل جولة بدرع حماية جاهز من البداية." },
-  { id: "magnet",     name: "مغناطيس الجواهر",          price: 3000, perk: "يجذب النقاط القريبة نحو اللاعب تلقائياً." },
-  { id: "reach_up",   name: "توسيع نطاق الجذب",        price: 3500, perk: "يوسّع مسافة التقاط الجواهر والقوى الخاصة." },
-  { id: "x2_perm",    name: "مضاعف النقاط الدائم ×2",   price: 5000, perk: "يضاعف النقاط والعملات المكتسبة بشكل دائم." },
-  { id: "auto_pulse", name: "نبضة التجميد التلقائية",   price: 5000, perk: "يجمد الظل تلقائياً عند اقترابه الخطير لأول مرة." },
-  { id: "time_slow",  name: "حقل التباطؤ الزمني",       price: 5000, perk: "يبطّئ انكماش دوائر المؤقت بنسبة 25%." },
-  { id: "halo_aura",  name: "هالة النور الأسطورية",     price: 5500, perk: "توهج خاص حول اللاعب وتباطؤ خفيف لحركة الظل." },
-  { id: "repel_wave", name: "موجة الصدّ الذهبية",       price: 5500, perk: "تدفع الظل للخلف عند التقاط أي قوة خاصة." },
-  { id: "revive_1",   name: "الفرصة الثانية",           price: 6000, perk: "إحياء مرة واحدة في الجولة مع إبعاد وتجميد الظل." },
-  { id: "save_loss",  name: "حفظ النقاط عند الخسارة",   price: 6500, perk: "يحفظ جزءاً من نقاط الجولة حتى عند الخسارة." },
-  { id: "stealth_op", name: "وضع التخفّي المؤقت",      price: 7500, perk: "يمنح تخفّياً مؤقتاً يقلل تركيز مطاردة الظل." }
-];
-let ownedPerks = [];
-try {
-  const op = JSON.parse(localStorage.getItem("sh_perks") || "[]");
-  if (Array.isArray(op)) ownedPerks = op.filter(id => PERKS_SHOP.some(x => x.id === id));
-} catch (e) {}
-const savePerks = () => store("sh_perks", JSON.stringify(ownedPerks));
-const hasPerk = (id) => ownedPerks.includes(id);
-
-function renderPerksShop() {
-  let box = document.getElementById("perksShopBox");
-  const shopEl = document.getElementById("shop");
-  if (!shopEl) return;
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "perksShopBox";
-    box.style.cssText = "width:min(760px,100%);margin-top:14px;padding:12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12)";
-    shopEl.insertBefore(box, document.getElementById("shopClose"));
-  }
-  box.innerHTML = "<h3 style=\"margin:0 0 10px;color:#7df9ff\">متجر القدرات والترقيات</h3><div id=\"perksGrid\" style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px\"></div>";
-  const grid = box.querySelector("#perksGrid");
-  for (const item of PERKS_SHOP) {
-    const bought = hasPerk(item.id);
-    const card = document.createElement("div");
-    card.style.cssText = "padding:10px;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;justify-content:space-between;gap:8px";
-    card.innerHTML = `<div><div style="font-weight:800;color:#fff">${item.name}</div><div style="font-size:13px;opacity:.85;margin-top:4px">${item.perk}</div></div>`;
-    const btn = document.createElement("button");
-    btn.className = "main";
-    btn.style.cssText = "padding:8px 10px;font-size:14px";
-    btn.textContent = bought ? "مفعّلة ✓" : ("شراء 🪙 " + item.price);
-    btn.disabled = bought;
-    btn.addEventListener("click", () => {
-      if (typeof audioOn === "function") audioOn();
-      if (hasPerk(item.id)) return;
-      if (coins < item.price) {
-        if (typeof shopMsg === "function") shopMsg(`تحتاج ${item.price - coins} عملة إضافية لشراء ${item.name}`, true);
-        if (sfx && sfx.deny) sfx.deny();
-        return;
-      }
-      coins -= item.price;
-      ownedPerks.push(item.id);
-      saveCoins();
-      savePerks();
-      if (typeof refreshCoinTexts === "function") refreshCoinTexts();
-      if (sfx && sfx.buy) sfx.buy();
-      if (typeof shopMsg === "function") shopMsg(`تم شراء وتفعيل ${item.name}!`);
-      renderPerksShop();
-    });
-    card.appendChild(btn);
-    grid.appendChild(card);
-  }
-}
-if (typeof renderShop === "function") {
-  const _origRenderShop = renderShop;
-  renderShop = function() {
-    _origRenderShop();
-    renderPerksShop();
-  };
-}
-
-
-
-/* ---------- إشعار وزر التحديث المتاح (تلقائي من GitHub) ---------- */
-const APP_VERSION = "1.0.0";
-const VERSION_JSON_URL = "https://raw.githubusercontent.com/mohamadhossunkhalil-lab/Mohammed-Hussein-Khalil-Farah-/main/version.json";
-const DEFAULT_APK_URL = "https://github.com/mohamadhossunkhalil-lab/Mohammed-Hussein-Khalil-Farah-/raw/main/escape-shadow.apk";
-
-function isNewerVersion(latest, current) {
-  const a = String(latest).split(".").map(n => parseInt(n, 10) || 0);
-  const b = String(current).split(".").map(n => parseInt(n, 10) || 0);
-  const len = Math.max(a.length, b.length);
-  for (let i = 0; i < len; i++) {
-    const x = a[i] || 0, y = b[i] || 0;
-    if (x > y) return true;
-    if (x < y) return false;
-  }
-  return false;
-}
-
-function showUpdateButton(latestVer, apkUrl) {
-  if (document.getElementById("updateAvailableBtn")) return;
-  const menuEl = document.getElementById("menu");
-  if (!menuEl) return;
-  const btn = document.createElement("button");
-  btn.id = "updateAvailableBtn";
-  btn.className = "main alt";
-  btn.style.cssText = "margin-top:8px;border-color:#7df9ff;color:#7df9ff";
-  btn.textContent = "تحديث متاح (" + latestVer + ") ⬇";
-  btn.addEventListener("click", () => {
-    window.open(apkUrl || DEFAULT_APK_URL, "_blank", "noopener,noreferrer");
-  });
-  const shopBtn = document.getElementById("shopBtn");
-  if (shopBtn && shopBtn.parentNode === menuEl) {
-    shopBtn.insertAdjacentElement("afterend", btn);
-  } else {
-    menuEl.appendChild(btn);
-  }
-}
-
-async function checkAppUpdate() {
-  try {
-    const res = await fetch(VERSION_JSON_URL + "?t=" + Date.now(), { cache: "no-store" });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data && data.version && isNewerVersion(data.version, APP_VERSION)) {
-      showUpdateButton(data.version, data.url);
-    }
-  } catch (e) {}
-}
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", checkAppUpdate);
-} else {
-  checkAppUpdate();
-}
-
 function openShop(from) {
   shopOpen = true; shopFrom = from;
   el.menu.classList.add('hidden'); el.over.classList.add('hidden');
@@ -1026,9 +1405,12 @@ function closeShop() {
 }
 
 function reset() {
+  mz.on = nextMode === 'maze'; gemsBase = 0;
   gemsCount = 0; freezeT = 0; freezeBlend = 0; shake = 0; danger = 0; newRecord = false;
   level = 1; combo = 0; comboT = 0; runCoins = 0; shield = false; invuln = 0; freezeMax = FREEZE_TIME;
   dashT = 0; dashCd = 0; lungeWarn = 0; lungeT = 0; lungeCd = 8; floats.length = 0;
+  pulseCd = 0; revealT = 0; shadowStun = 0; trailAcc = 0; ghostT = 0; comboBeat = 0; comboWarned = false;
+  waves.length = 0; stats = newStats();
   themeFrom = themeTo = THEMES[0]; themeT = 1;
   applySkin();
   particles.length = 0; power = null; joy = null;
@@ -1037,6 +1419,7 @@ function reset() {
   shadow.x = clamp(W / 2 + Math.cos(a) * d, 40, W - 40);
   shadow.y = clamp(H / 2 + Math.sin(a) * d, 40, H - 40);
   shadow.vx = shadow.vy = 0; shadow.appear = 0;
+  if (mz.on) mazeSetup();
   powerInterval = powerTimer = nextPowerDelay();
   spawnGem();
 }
@@ -1051,6 +1434,7 @@ function startGame() {
   el.hud.classList.remove('off');
   el.subhud.classList.remove('off');
   el.dash.classList.remove('off');
+  el.pulse.classList.remove('off');
 }
 function togglePause() {
   if (state === 'play') { state = 'paused'; el.pause.classList.remove('hidden'); }
@@ -1067,18 +1451,35 @@ function die() {
   burst(player.x, player.y, 46, skin.glow, 360, 4);
   burst(player.x, player.y, 40, '#2a0a55', 260, 9, { add: false, life: 1.2 });
   sfx.death();
-  if (gemsCount > best) {
+  if (mz.on) {
+    if (gemsCount > mazeBest) { mazeBest = gemsCount; newRecord = true; store('sh_mazebest', mazeBest); }
+  } else if (gemsCount > best) {
     best = gemsCount; newRecord = true;
     try { localStorage.setItem('highScore', String(best)); } catch (e) {}
   }
   el.finalScore.textContent = gemsCount;
-  el.finalBest.textContent = best;
+  el.finalBest.textContent = mz.on ? mazeBest : best;
+  updateMazeUI();
   el.recordTag.classList.toggle('hidden', !newRecord);
   el.finalLevel.textContent = level;
   el.runCoins.textContent = runCoins > 0 ? `+${runCoins} 🪙 في هذه الجولة` : '';
   refreshCoinTexts();
+  // إحصائيات الجولة
+  const fmtT = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+  let comboRec = false;
+  if (stats.maxCombo >= 3 && stats.maxCombo > bestCombo) { bestCombo = stats.maxCombo; comboRec = true; store('sh_bestcombo', bestCombo); }
+  const mm = Math.min(5, 1 + Math.floor((stats.maxCombo - 1) / 2));
+  el.stCombo.textContent = stats.maxCombo;
+  el.stComboLbl.textContent = stats.maxCombo >= 2 ? `أعلى كومبو ×${mm}` : 'أعلى كومبو';
+  el.stComboBox.classList.toggle('rec', comboRec);
+  el.stTime.textContent = fmtT(stats.time);
+  el.stDash.textContent = stats.dashes;
+  el.stSave.textContent = stats.saves;
+  el.stPulse.textContent = stats.pulses;
+  el.stIce.textContent = stats.ice;
   combo = 0; comboT = 0;
   el.dash.classList.add('off');
+  el.pulse.classList.add('off');
   setTimeout(() => { if (state === 'over') { el.over.classList.remove('hidden'); overAt = performance.now(); } }, 850);
 }
 
@@ -1108,8 +1509,19 @@ function update(dt) {
   }
 
   /* --- العدّادات --- */
-  if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
+  stats.time += dt;
+  if (comboT > 0) {
+    comboT -= dt;
+    if (comboT <= 0) endCombo();
+    else if (combo >= 3 && comboT < 0.9 && !comboWarned) { comboWarned = true; sfx.comboWarn(); }   // تنبيه قبل انقطاع الكومبو
+  }
+  if (combo >= 6 && comboT > 0) {                                  // نبض إيقاعي خفيف يتسارع مع الكومبو
+    comboBeat -= dt;
+    if (comboBeat <= 0) { sfx.comboBeat(combo, comboT < 0.9); comboBeat = lerp(0.46, 0.24, clamp((combo - 6) / 12, 0, 1)); }
+  }
   if (dashCd > 0) dashCd -= dt;
+  if (pulseCd > 0) pulseCd -= dt;
+  if (revealT > 0) revealT -= dt;
 
   /* --- اللاعب: تسارع + احتكاك (مع الاندفاع) --- */
   const inp = inputVector();
@@ -1127,24 +1539,21 @@ function update(dt) {
   let sp = Math.hypot(player.vx, player.vy);
   const cap = dashT > 0 ? DASH.speed : (sp > PLAYER.maxSpeed ? Math.max(PLAYER.maxSpeed, sp * Math.exp(-7 * dt)) : PLAYER.maxSpeed);
   if (sp > cap) { player.vx *= cap / sp; player.vy *= cap / sp; sp = cap; }
-  player.x += player.vx * dt; player.y += player.vy * dt;
+  if (mz.on) mazeStep(player, pR, 0.12, dt);                       // المتاهة: حركة بخطوات مع اصطدام بالجدران
+  else { player.x += player.vx * dt; player.y += player.vy * dt; }
   if (sp > 25) player.face = lerpAngle(player.face, Math.atan2(player.vy, player.vx), 1 - Math.exp(-12 * dt));
 
   /* تصادم مرن مع حدود الشاشة (ارتداد + انزلاق) */
-  const r = pR;
-  if (isMazeActive()) { resolveCircleWalls(player, r, PLAYER.restitution, PLAYER.restitution, 0.2); } else {
-    if (player.x < r)     { player.x = r;     player.vx =  Math.abs(player.vx) * PLAYER.restitution; }
-    if (player.x > W - r) { player.x = W - r; player.vx = -Math.abs(player.vx) * PLAYER.restitution; }
-    if (player.y < r)     { player.y = r;     player.vy =  Math.abs(player.vy) * PLAYER.restitution; }
-    if (player.y > H - r) { player.y = H - r; player.vy = -Math.abs(player.vy) * PLAYER.restitution; }
-  }
+  const r = mz.on ? -1e9 : pR;                                     // لا حدود شاشة في المتاهة (الجدران تتولّى ذلك)
+  if (player.x < r)     { player.x = r;     player.vx =  Math.abs(player.vx) * PLAYER.restitution; }
+  if (player.x > W - r) { player.x = W - r; player.vx = -Math.abs(player.vx) * PLAYER.restitution; }
+  if (player.y < r)     { player.y = r;     player.vy =  Math.abs(player.vy) * PLAYER.restitution; }
+  if (player.y > H - r) { player.y = H - r; player.vy = -Math.abs(player.vy) * PLAYER.restitution; }
 
-  /* أثر اللاعب */
-  if (dashT > 0) {
-    burst(player.x, player.y, 2, skin.glow, 40, 7, { life: 0.35, alpha: 0.8 });
-  } else if (sp > 140 && Math.random() < 0.7) {
-    burst(player.x - player.vx * 0.02, player.y - player.vy * 0.02, 1, skin.glow, 16, 5, { life: 0.45, alpha: 0.6 });
-  }
+  if (mz.on) mazeRefresh();
+  /* أثر اللاعب (يختلف لكل شخصية) */
+  emitTrail(dt, sp);
+  processWaves();
 
   /* --- الظل: Seek مع قصور ذاتي --- */
   shadow.appear = Math.min(1, shadow.appear + dt / 1.1);
@@ -1154,6 +1563,12 @@ function update(dt) {
     const k = Math.exp(-9 * dt); shadow.vx *= k; shadow.vy *= k;
     if (Math.random() < 0.35) burst(shadow.x + rand(-26, 26), shadow.y + rand(-26, 26), 1, '#cfe8ff', 30, 3, { life: 0.7 });
     if (freezeT <= 0) { freezeT = 0; sfx.thaw(); burst(shadow.x, shadow.y, 22, '#cfe8ff', 160, 3); }
+  } else if (shadowStun > 0) {
+    // مرتبك بعد نبضة النور: ينزلق بالقصور الذاتي بلا توجيه
+    shadowStun -= dt;
+    lungeWarn = lungeT = 0; lungeCd = Math.max(lungeCd, 2.5);
+    const k = Math.exp(-4.5 * dt); shadow.vx *= k; shadow.vy *= k;
+    if (Math.random() < 0.5) burst(shadow.x + rand(-24, 24), shadow.y + rand(-24, 24), 1, '#9fe8ff', 60, 3, { life: 0.5 });
   } else if (shadow.appear >= 1) {
     // من المستوى ٤: إنذار أحمر ثم نقضة سريعة
     if (level >= LUNGE_LEVEL) {
@@ -1172,7 +1587,8 @@ function update(dt) {
     if (lungeWarn > 0) maxS *= 0.35;                              // يتهيّأ للانقضاض
     else if (lungeT > 0) { maxS *= 1.45; maxF *= 2.4; }           // النقضة
     // نتوقع موضع اللاعب قليلًا للأمام فيبدو الظل أذكى
-    const tx = player.x + player.vx * 0.12, ty = player.y + player.vy * 0.12;
+    let tx = player.x + player.vx * 0.12, ty = player.y + player.vy * 0.12;
+    if (mz.on) { const t = mazeShadowTarget(); tx = t.x; ty = t.y; maxS *= MAZE.shadowSpeed; }   // المتاهة: يتبع المسار بـ 40% من السرعة
     let dx = tx - shadow.x, dy = ty - shadow.y;
     const dl = Math.hypot(dx, dy) || 1;
     dx = dx / dl * maxS; dy = dy / dl * maxS;               // السرعة المطلوبة
@@ -1183,22 +1599,20 @@ function update(dt) {
     const ss = Math.hypot(shadow.vx, shadow.vy);
     if (ss > maxS) { shadow.vx *= maxS / ss; shadow.vy *= maxS / ss; }
   }
-  shadow.x += shadow.vx * dt; shadow.y += shadow.vy * dt;
-  const sr = sR;
-  if (isMazeActive()) { resolveCircleWalls(shadow, sr, 0.35, 0.35, 0.1); } else {
-    if (shadow.x < sr)     { shadow.x = sr;     shadow.vx = Math.abs(shadow.vx) * 0.3; }
-    if (shadow.x > W - sr) { shadow.x = W - sr; shadow.vx = -Math.abs(shadow.vx) * 0.3; }
-    if (shadow.y < sr)     { shadow.y = sr;     shadow.vy = Math.abs(shadow.vy) * 0.3; }
-    if (shadow.y > H - sr) { shadow.y = H - sr; shadow.vy = -Math.abs(shadow.vy) * 0.3; }
-  }
-  updateCamera(dt);
+  if (mz.on) mazeStep(shadow, sR, 0.3, dt);
+  else { shadow.x += shadow.vx * dt; shadow.y += shadow.vy * dt; }
+  const sr = mz.on ? -1e9 : sR;
+  if (shadow.x < sr)     { shadow.x = sr;     shadow.vx = Math.abs(shadow.vx) * 0.3; }
+  if (shadow.x > W - sr) { shadow.x = W - sr; shadow.vx = -Math.abs(shadow.vx) * 0.3; }
+  if (shadow.y < sr)     { shadow.y = sr;     shadow.vy = Math.abs(shadow.vy) * 0.3; }
+  if (shadow.y > H - sr) { shadow.y = H - sr; shadow.vy = -Math.abs(shadow.vy) * 0.3; }
   if (freezeT <= 0 && shadow.appear > 0.3 && Math.random() < 0.5) {
     burst(shadow.x + rand(-18, 18), shadow.y + rand(-18, 18), 1, '#3a1470', 14, 10, { add: false, life: 0.7, alpha: 0.35 });
   }
 
   /* --- القرب والخطر --- */
   const dist = Math.hypot(player.x - shadow.x, player.y - shadow.y);
-  danger = freezeT > 0 ? 0 : clamp(1 - (dist - 60) / 200, 0, 1);
+  danger = freezeT > 0 ? 0 : clamp(1 - ((mz.on ? mazeDangerDist(dist) : dist) - 60) / 200, 0, 1);
   if (danger > 0.35 && !reduceMotion) shake = Math.max(shake, danger * 3.5);
   if (danger > 0.2) {
     heartbeat -= dt;
@@ -1219,10 +1633,10 @@ function update(dt) {
       const pull = (1 - gd / 120) * 260 * dt;
       gem.x += (player.x - gem.x) / gd * pull; gem.y += (player.y - gem.y) / gd * pull;
     }
-    if (gd < pR + 16 + (skin.magnet || 0)) collectGem();
+    if (gd < pR + 16 * ik() + (skin.magnet || 0)) collectGem();
     else if (gem.ttl) {
-      gem.left -= dt;
-      if (gem.left <= 0) { burst(gem.x, gem.y, 14, '#8d93b5', 120, 3); combo = 0; comboT = 0; spawnGem(); }
+      if (revealT <= 0) gem.left -= dt;      // النبضة توقف مؤقّت اختفاء الجوهرة
+      if (gem.left <= 0) { burst(gem.x, gem.y, 14, '#8d93b5', 120, 3); endCombo(); spawnGem(); }
     }
   }
 
@@ -1234,13 +1648,13 @@ function update(dt) {
   if (power) {
     power.life -= dt;
     if (power.life <= 0) { power = null; powerInterval = powerTimer = nextPowerDelay(); }
-    else if (Math.hypot(player.x - power.x, player.y - power.y) < pR + 18) {
+    else if (Math.hypot(player.x - power.x, player.y - power.y) < pR + 18 * ik()) {
       if (power.kind === 'shield') {
         shield = true; sfx.shield();
         burst(power.x, power.y, 36, '#ffe9a8', 300, 4);
         floatText('الدرع جاهز', power.x, power.y - 30, '#ffe9a8');
       } else {
-        freezeShadow(FREEZE_TIME + (skin.freezeBonus || 0));
+        freezeShadow(FREEZE_TIME + (skin.freezeBonus || 0)); stats.ice++;
         sfx.power();
         burst(power.x, power.y, 36, '#bfe6ff', 300, 4);
       }
@@ -1249,6 +1663,7 @@ function update(dt) {
     }
   }
 
+  if (mz.on) mazeCamera(dt);
   updateParticles(dt);
 }
 
@@ -1266,6 +1681,7 @@ function drawBackground() {
     ctx.fillRect(-40, -40, W + 80, H + 80);
   }
 
+  if (mz.on) return;   // في المتاهة: الجدران هي الخلفية
   // شبكة بطبقتين لإعطاء عمق (Parallax)
   const layers = [{ s: 56, a: 0.055, f: 0.03, v: 5 }, { s: 168, a: 0.09, f: 0.09, v: 11 }];
   ctx.lineWidth = 1;
@@ -1292,12 +1708,79 @@ function drawPlayerLight() {
   ctx.globalCompositeOperation = 'source-over';
 }
 
+// الجوهرة البعيدة عن ضوء اللاعب تبهت، والنبضة تكشفها مؤقتًا بكامل لمعانها
+function gemVis(g) {
+  if (state !== 'play') return 1;
+  const d = Math.hypot(player.x - g.x, player.y - g.y);
+  const base = clamp(1 - (d - (mz.on ? 560 : 340)) / 280, 0.42, 1);
+  return lerp(base, 1, clamp(revealT / 0.5, 0, 1));
+}
+
+// دليل النبضة: خط متقطع وحلقات نابضة وسهم نحو الجوهرة (والقوة إن وُجدت)
+function drawReveal() {
+  if (revealT <= 0 || player.dead) return;
+  const f = clamp(revealT / 0.7, 0, 1) * clamp((PULSE.reveal + 0.2 - revealT) / 0.25, 0, 1);
+  const mark = (x, y, col) => {
+    const dx = x - player.x, dy = y - player.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    if (d > 90 && !mz.on) {
+      ctx.strokeStyle = col(0.4 * f); ctx.lineWidth = 2;
+      ctx.setLineDash([3, 11]); ctx.lineDashOffset = -time * 40;
+      ctx.beginPath(); ctx.moveTo(player.x + ux * (pR + 40), player.y + uy * (pR + 40)); ctx.lineTo(x - ux * 36, y - uy * 36); ctx.stroke();
+      ctx.setLineDash([]);
+      const ax = player.x + ux * (pR + 30), ay = player.y + uy * (pR + 30);   // سهم قريب من اللاعب
+      ctx.fillStyle = col(0.75 * f);
+      ctx.beginPath();
+      ctx.moveTo(ax + ux * 9, ay + uy * 9); ctx.lineTo(ax - ux * 5 - uy * 7, ay - uy * 5 + ux * 7); ctx.lineTo(ax - ux * 5 + uy * 7, ay - uy * 5 - ux * 7);
+      ctx.closePath(); ctx.fill();
+    }
+    const ph = (time * 1.1) % 1;
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i < 2; i++) {
+      const q = (ph + i * 0.5) % 1;
+      ctx.strokeStyle = col((1 - q) * 0.8 * f);
+      ctx.beginPath(); ctx.arc(x, y, 20 + q * 46, 0, TAU); ctx.stroke();
+    }
+    const gl = ctx.createRadialGradient(x, y, 0, x, y, 90);
+    gl.addColorStop(0, col(0.38 * f)); gl.addColorStop(1, col(0));
+    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(x, y, 90, 0, TAU); ctx.fill();
+    ctx.restore();
+  };
+  if (gem) mark(gem.x, gem.y, a => `hsla(${gem.h},100%,75%,${a})`);
+  if (mz.on) drawMazePath(f);
+  if (power) {
+    const c = power.kind === 'shield' ? '255,226,140' : '190,230,255';
+    mark(power.x, power.y, a => `rgba(${c},${a})`);
+  }
+}
+
+// موجة النبضة نفسها
+function drawWaves() {
+  if (!waves.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const w of waves) {
+    const p = clamp(w.t / w.dur, 0, 1), r = Math.max(2, w.max * (1 - Math.pow(1 - p, 3))), a = 1 - p;
+    const g = ctx.createRadialGradient(w.x, w.y, r * 0.55, w.x, w.y, r);
+    g.addColorStop(0, `rgba(${w.rgb},0)`);
+    g.addColorStop(0.85, `rgba(${w.rgb},${0.22 * a})`);
+    g.addColorStop(1, `rgba(${w.rgb},${0.5 * a})`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(w.x, w.y, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,${0.85 * a})`; ctx.lineWidth = 1.5 + 5 * a;
+    ctx.shadowBlur = 24; ctx.shadowColor = `rgb(${w.rgb})`;
+    ctx.beginPath(); ctx.arc(w.x, w.y, r, 0, TAU); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawGem(g) {
-  const k = Math.min(1, (time - g.born) / 0.35);
+  const k = Math.min(1, (time - g.born) / 0.35), vis = gemVis(g);
   const s = k * (1 + 0.08 * Math.sin(time * 4));
   const bob = Math.sin(time * 2 + g.phase) * 3;
   ctx.save();
   ctx.translate(g.x, g.y + bob);
+  ctx.globalAlpha = vis;
   const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, 48 * s);
   gl.addColorStop(0, `hsla(${g.h},100%,70%,.45)`);
   gl.addColorStop(1, `hsla(${g.h},100%,70%,0)`);
@@ -1320,7 +1803,7 @@ function drawGem(g) {
 
   if (g.ttl) {   // حلقة المهلة حول الجوهرة
     const f = clamp(g.left / g.ttl, 0, 1);
-    ctx.strokeStyle = `hsla(${g.h},100%,75%,${f < 0.3 ? (Math.sin(time * 16) > 0 ? 0.9 : 0.3) : 0.55})`;
+    ctx.strokeStyle = `hsla(${g.h},100%,75%,${(f < 0.3 ? (Math.sin(time * 16) > 0 ? 0.9 : 0.3) : 0.55) * vis})`;
     ctx.lineWidth = 2; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(g.x, g.y, 30, -Math.PI / 2, -Math.PI / 2 + TAU * f); ctx.stroke();
   }
@@ -1330,7 +1813,7 @@ function drawGem(g) {
     const a = time * 1.5 + i * 2.1 + g.phase, rr = 28 + 6 * Math.sin(time * 3 + i);
     const tw = (Math.sin(time * 6 + i * 1.9) + 1) / 2;
     const sx = g.x + Math.cos(a) * rr, sy = g.y + Math.sin(a) * rr * 0.8, z = (2 + 3 * tw) * k;
-    ctx.globalAlpha = tw * 0.9; ctx.fillStyle = '#fff';
+    ctx.globalAlpha = tw * 0.9 * vis; ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.moveTo(sx, sy - z * 1.6); ctx.lineTo(sx + z * 0.5, sy); ctx.lineTo(sx, sy + z * 1.6); ctx.lineTo(sx - z * 0.5, sy); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(sx - z * 1.6, sy); ctx.lineTo(sx, sy + z * 0.5); ctx.lineTo(sx + z * 1.6, sy); ctx.lineTo(sx, sy - z * 0.5); ctx.closePath(); ctx.fill();
   }
@@ -1443,22 +1926,6 @@ function drawShadow() {
     ctx.strokeStyle = 'rgba(190,225,255,.7)'; ctx.lineWidth = 2;
     ctx.setLineDash([7, 9]); ctx.lineDashOffset = -time * 14;
     ctx.beginPath(); ctx.arc(s.x, s.y, r * 1.55, 0, TAU); ctx.stroke();
-
-  // مؤقت دائري تنازلي حول الظل أثناء التجميد
-  if (typeof freezeT !== "undefined" && freezeT > 0) {
-    const maxF = (typeof FREEZE_DUR !== "undefined" && FREEZE_DUR > 0) ? FREEZE_DUR : 4;
-    const ratio = Math.max(0, Math.min(1, freezeT / maxF));
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = "#7df9ff";
-    ctx.lineWidth = 3;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, r * 1.85, -Math.PI / 2, -Math.PI / 2 + TAU * ratio);
-    ctx.stroke();
-    ctx.restore();
-  }
-
     ctx.setLineDash([]);
   }
   if (lungeWarn > 0) {   // إنذار: حلقة حمراء نابضة
@@ -1466,6 +1933,13 @@ function drawShadow() {
     ctx.strokeStyle = '#ff4d7d'; ctx.lineWidth = 3;
     ctx.shadowBlur = 16; ctx.shadowColor = '#ff4d7d';
     ctx.beginPath(); ctx.arc(s.x, s.y, r * (1.4 + 0.25 * Math.sin(time * 30)), 0, TAU); ctx.stroke();
+  }
+  if (shadowStun > 0) {   // حلقة الإرباك بعد النبضة
+    ctx.globalAlpha = ap * clamp(shadowStun / 0.3, 0, 1);
+    ctx.strokeStyle = 'rgba(180,235,255,.85)'; ctx.lineWidth = 2;
+    ctx.setLineDash([4, 7]); ctx.lineDashOffset = time * 60;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r * 1.75, 0, TAU); ctx.stroke();
+    ctx.setLineDash([]);
   }
   ctx.restore();
 }
@@ -1575,18 +2049,18 @@ function render() {
   if (shake > 0.05 && !reduceMotion) ctx.translate(rand(-shake, shake), rand(-shake, shake));   // اهتزاز الشاشة
 
   drawBackground();
-  ctx.save();
-  if (isMazeActive()) ctx.translate(-cam.x, -cam.y);
-  drawMazeWalls();
+  if (mz.on) { ctx.save(); ctx.scale(cam.zoom, cam.zoom); ctx.translate(-cam.x, -cam.y); drawMaze(); }   // عالم المتاهة (كاميرا)
   drawPlayerLight();
   drawParticles(true);
-  if (gem && state !== 'menu') drawGem(gem);
-  if (power) drawPower(power);
+  if (state === 'play') drawReveal();
+  if (gem && state !== 'menu') gk(gem, drawGem);
+  if (power) gk(power, drawPower);
   drawShadow();
+  drawWaves();
   drawParticles(false);
   drawPlayer();
   drawFloats();
-  ctx.restore();
+  if (mz.on) ctx.restore();
   ctx.restore();
 
   // تظليل الحواف (Vignette) + وميض الخطر
@@ -1596,18 +2070,19 @@ function render() {
     ctx.drawImage(vigDanger, 0, 0, W, H);
     ctx.globalAlpha = 1;
   }
-  drawMinimap();
   drawJoystick();
+  drawMiniMap();
 }
 
 /* ---------- تحديث الواجهة ---------- */
 let lastGems = -1, lastBest = -1, lastLabel = '', lastCoins = -1, lastLv = 0;
 function updateHud() {
   if (gemsCount !== lastGems) { el.gems.textContent = gemsCount; lastGems = gemsCount; }
-  if (best !== lastBest) { el.best.textContent = best; lastBest = best; }
+  const cb = mz.on ? mazeBest : best;
+  if (cb !== lastBest) { el.best.textContent = cb; lastBest = cb; }
   let label, frac, cls = '';
   if (freezeT > 0)      { label = 'الظل متجمّد'; frac = freezeT / freezeMax; cls = 'active'; }
-  else if (power)       { label = power.kind === 'shield' ? 'درع الحماية ظهر! التقطه' : 'أيقونة الجليد ظهرت! التقطها'; frac = power.life / POWER_LIFE; cls = 'ready'; }
+  else if (power)       { label = power.kind === 'shield' ? 'درع الحماية ظهر! التقطه' : 'أيقونة الجليد ظهرت! التقطها'; frac = power.life / (power.max || POWER_LIFE); cls = 'ready'; }
   else                  { label = 'القوة القادمة لم تظهر بعد'; frac = 1 - powerTimer / powerInterval; }
   if (label !== lastLabel) {
     el.powerLabel.textContent = label; lastLabel = label;
@@ -1617,17 +2092,18 @@ function updateHud() {
 
   if (coins !== lastCoins) { el.coinVal.textContent = coins; lastCoins = coins; }
   if (level !== lastLv) { el.levelTxt.textContent = 'المستوى ' + level; lastLv = level; }
-  el.mazeChip.classList.toggle('hidden', !isMazeActive());
-  el.levelFill.style.width = ((gemsCount % LEVEL_STEP) / LEVEL_STEP * 100).toFixed(1) + '%';
+  el.levelFill.style.width = ((gemsEff() % LEVEL_STEP) / LEVEL_STEP * 100).toFixed(1) + '%';
   const showCombo = combo >= 2 && comboT > 0;
   el.comboChip.classList.toggle('hidden', !showCombo);
   if (showCombo) {
     el.comboTxt.textContent = 'كومبو ×' + comboMult();
-    el.comboFill.style.width = (clamp(comboT / COMBO_TIME, 0, 1) * 100).toFixed(1) + '%';
+    el.comboFill.style.width = (clamp(comboT / comboTime(), 0, 1) * 100).toFixed(1) + '%';
   }
   el.shieldChip.classList.toggle('hidden', !shield);
-  el.dash.style.setProperty('--p', ((1 - clamp(dashCd / DASH.cd, 0, 1)) * 100).toFixed(1) + '%');
+  el.dash.style.setProperty('--p', ((1 - clamp(dashCd / dashCdMax(), 0, 1)) * 100).toFixed(1) + '%');
   el.dash.classList.toggle('ready', dashCd <= 0);
+  el.pulse.style.setProperty('--p', ((1 - clamp(pulseCd / pulseCdMax(), 0, 1)) * 100).toFixed(1) + '%');
+  el.pulse.classList.toggle('ready', pulseCd <= 0);
 }
 
 /* ---------- الحلقة الرئيسية ---------- */
@@ -1641,8 +2117,61 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+/* ---------- التثبيت كتطبيق (PWA) ---------- */
+let deferredInstall = null, infoOpen = false;
+const ua = navigator.userAgent || '';
+const isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => navigator.standalone === true ||
+  (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches));
+const refreshInstallBtn = () => { el.install.hidden = isStandalone(); };
+
+addEventListener('beforeinstallprompt', e => {          // المتصفح جاهز للتثبيت بنافذته الرسمية
+  e.preventDefault(); deferredInstall = e; refreshInstallBtn();
+});
+addEventListener('appinstalled', () => {
+  deferredInstall = null; el.install.hidden = true; closeInstallInfo();
+});
+
+async function onInstall() {
+  audioOn();
+  if (deferredInstall) {
+    const ev = deferredInstall; deferredInstall = null;
+    try { ev.prompt(); await ev.userChoice; } catch (e) {}
+    return;
+  }
+  showInstallInfo();                                     // iOS وغيره: إرشادات يدوية
+}
+function showInstallInfo() {
+  const steps = isIOS
+    ? ['اضغط زر المشاركة في شريط Safari', 'اختر «إضافة إلى الشاشة الرئيسية»', 'اضغط «إضافة» وستجد اللعبة بين تطبيقاتك']
+    : ['افتح قائمة المتصفح (⋮ أو ⋯)', 'اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»', 'أكّد وستجد اللعبة بين تطبيقاتك'];
+  el.installSteps.textContent = '';
+  for (const t of steps) { const li = document.createElement('li'); li.textContent = t; el.installSteps.appendChild(li); }
+  const secure = window.isSecureContext !== false && /^https?:$/.test(location.protocol);
+  el.installNote.classList.toggle('warn', !secure);
+  el.installNote.textContent = secure
+    ? (isIOS ? 'على iPhone وiPad يتم التثبيت من متصفح Safari مباشرة.' : 'متصفحك لم يعرض نافذة التثبيت تلقائيًا، فاتبع الخطوات:')
+    : 'التثبيت يحتاج فتح اللعبة عبر رابط آمن (https) وليس كملف محلي.';
+  infoOpen = true;
+  el.menu.classList.add('hidden');
+  el.installInfo.classList.remove('hidden');
+  $('installClose').focus();
+}
+function closeInstallInfo() {
+  if (!infoOpen) return;
+  infoOpen = false;
+  el.installInfo.classList.add('hidden');
+  el.menu.classList.remove('hidden');
+}
+$('installBtn').addEventListener('click', onInstall);
+$('installClose').addEventListener('click', closeInstallInfo);
+refreshInstallBtn();
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
 /* ---------- ربط الأزرار والبدء ---------- */
-$('startBtn').addEventListener('click', startGame);
+$('startBtn').addEventListener('click', () => { nextMode = 'classic'; startGame(); });
 $('retryBtn').addEventListener('click', startGame);
 $('resumeBtn').addEventListener('click', togglePause);
 el.mute.addEventListener('click', () => { toggleMute(); el.mute.blur(); });
@@ -1650,6 +2179,9 @@ $('shopBtn').addEventListener('click', () => openShop('menu'));
 $('shopBtn2').addEventListener('click', () => openShop('over'));
 $('shopClose').addEventListener('click', closeShop);
 el.dash.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); dash(); });
+el.pulse.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pulse(); });
+el.tabSkins.addEventListener('click', () => setTab('skins'));
+el.tabUpg.addEventListener('click', () => setTab('upgrades'));
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 if (best > 0) el.menuBest.textContent = 'أعلى نتيجة: ' + best;
@@ -1658,24 +2190,11 @@ applySkin();
 refreshCoinTexts();
 resize();
 reset();
+updateMazeUI();
 state = 'menu';
 requestAnimationFrame(frame);
 
 })();
 </script>
-
-<script>
-document.addEventListener("click", function(e) {
-  const el = e.target.closest("button, a");
-  if (el && el.textContent && el.textContent.includes("ثبت كتطبيق")) {
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    window.location.href = "https://mohamadhossunkhalil-lab.github.io/Mohammed-Hussein-Khalil-Farah-/escape-shadow.apk";
-  }
-}, true);
-</script>
-
 </body>
 </html>
-
-/* SHOP_X100_APPLIED */
