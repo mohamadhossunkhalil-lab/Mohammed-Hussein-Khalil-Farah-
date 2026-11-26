@@ -745,7 +745,7 @@ addEventListener('keyup', e => { if (MOVE_KEYS[e.code]) keys.delete(MOVE_KEYS[e.
 addEventListener('blur', () => { keys.clear(); joy = null; if (state === 'play') togglePause(); });
 
 canvas.addEventListener('pointerdown', e => {
-  if (state !== 'play') return;
+  if (state !== 'play' || pinching) return;
   joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
   try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
 });
@@ -755,6 +755,58 @@ canvas.addEventListener('pointermove', e => {
 const joyEnd = e => { if (joy && e.pointerId === joy.id) joy = null; };
 canvas.addEventListener('pointerup', joyEnd);
 canvas.addEventListener('pointercancel', joyEnd);
+
+let pinchStartDist = 0, pinchStartMult = 1, pinching = false;
+const touchDist = touches => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+
+canvas.addEventListener('touchstart', e => {
+  if (!mz.on || state !== 'play') return;
+  if (e.touches.length >= 2) {
+    e.preventDefault();
+    pinching = true;
+    joy = null;
+    pinchStartDist = touchDist(e.touches) || 1;
+    pinchStartMult = mz.zoomMult || 1;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  if (!mz.on || state !== 'play') return;
+  if (e.touches.length >= 2) {
+    e.preventDefault();
+    if (!pinching) {
+      pinching = true;
+      joy = null;
+      pinchStartDist = touchDist(e.touches) || 1;
+      pinchStartMult = mz.zoomMult || 1;
+      return;
+    }
+    const d = touchDist(e.touches);
+    if (d > 0 && pinchStartDist > 0) {
+      const baseZ = mazeZoom() || 1;
+      const desiredMult = pinchStartMult * (d / pinchStartDist);
+      mz.zoomMult = clamp(desiredMult, 0.38 / baseZ, 1.65 / baseZ);
+    }
+  }
+}, { passive: false });
+
+const pinchEnd = e => {
+  if (pinching && e.touches.length < 2) {
+    pinching = false;
+    joy = null;
+  }
+};
+canvas.addEventListener('touchend', pinchEnd, { passive: false });
+canvas.addEventListener('touchcancel', pinchEnd, { passive: false });
+
+canvas.addEventListener('wheel', e => {
+  if (!mz.on || state !== 'play') return;
+  e.preventDefault();
+  const baseZ = mazeZoom() || 1;
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  mz.zoomMult = clamp((mz.zoomMult || 1) * factor, 0.38 / baseZ, 1.65 / baseZ);
+}, { passive: false });
+
 
 function inputVector() {
   let x = 0, y = 0;
@@ -826,7 +878,7 @@ try {
   maxLevel = parseInt(localStorage.getItem('sh_maxlevel'), 10) || 0;
   mazeBest = parseInt(localStorage.getItem('sh_mazebest'), 10) || 0;
 } catch (e) {}
-const mz = { on: false, H: null, V: null, dist: null, q: null, vis: null, pc: -1, W: 0, Hh: 0, mm: null, mmx: null };
+const mz = { on: false, H: null, V: null, dist: null, q: null, vis: null, pc: -1, W: 0, Hh: 0, mm: null, mmx: null, zoomMult: 1 };
 const cam = { x: 0, y: 0, zoom: 1 };
 
 const gemsEff = () => gemsCount + gemsBase;
@@ -1029,7 +1081,7 @@ function mazeSetup() {
 /* ---------- الكاميرا (تتبّع ناعم مع استشراف بسيط) ---------- */
 const mazeZoom = () => clamp(Math.min(W, H) / (MAZE.cell * 5.2), 0.62, 1.05);
 function mazeCamera(dt, snap) {
-  const z = mazeZoom();
+  const z = clamp(mazeZoom() * (mz.zoomMult || 1), 0.38, 1.65);
   cam.zoom = snap ? z : lerp(cam.zoom, z, 1 - Math.exp(-4 * dt));
   const vw = W / cam.zoom, vh = H / cam.zoom, pad = 60;
   const lx = clamp(player.vx * 0.25, -70, 70), ly = clamp(player.vy * 0.25, -70, 70);
