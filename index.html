@@ -101,6 +101,7 @@
   #comboChip .meter i{background:var(--gold)}
   #shieldChip{border-color:rgba(255,233,168,.55);color:#ffe9a8}
   #coinChip{color:var(--gold)}
+  #mazeChip{border-color:rgba(125,249,255,.45);color:var(--cyan)}
 
   /* ===== لافتة المستوى ===== */
   #banner{position:fixed;top:26%;left:0;right:0;text-align:center;pointer-events:none;opacity:0;padding:0 16px}
@@ -186,6 +187,7 @@
 
 <div id="subhud" class="off">
   <div class="chip" id="levelChip"><span id="levelTxt">المستوى 1</span><span class="meter"><i id="levelFill"></i></span></div>
+  <div class="chip hidden" id="mazeChip">🧩 أرض المتاهة</div>
   <div class="chip hidden" id="comboChip"><span id="comboTxt"></span><span class="meter"><i id="comboFill"></i></span></div>
   <div class="chip hidden" id="shieldChip">🛡 الدرع مفعّل</div>
   <div class="chip" id="coinChip">🪙 <span id="coinVal">0</span></div>
@@ -260,6 +262,7 @@ const el = {
   recordTag: $('recordTag'), runCoins: $('runCoins'),
   menuBest: $('menuBest'), menuCoins: $('menuCoins'), mute: $('muteBtn'),
   subhud: $('subhud'), levelTxt: $('levelTxt'), levelFill: $('levelFill'),
+  mazeChip: $('mazeChip'),
   comboChip: $('comboChip'), comboTxt: $('comboTxt'), comboFill: $('comboFill'),
   shieldChip: $('shieldChip'), coinVal: $('coinVal'),
   dash: $('dashBtn'), banner: $('banner'), bannerTitle: $('bannerTitle'), bannerSub: $('bannerSub'),
@@ -290,6 +293,176 @@ const SHADOW = {
 const FREEZE_TIME = 3;      // مدة تجميد الظل بالثواني
 const POWER_LIFE = 9;       // مدة بقاء أيقونة الجليد على الخريطة
 const HUD_SAFE = 112;        // منطقة الشريط العلوي (لا تظهر فيها العناصر)
+
+
+const MAZE_START_LEVEL = 51;
+const MAZE_COLS = 21;
+const MAZE_ROWS = 21;
+const MAZE_CELL = 88;
+const MAZE_WALL_THICK = 14;
+const MAZE_PLAYER_SCALE = 0.64;
+const MAZE_SHADOW_SCALE = 0.64;
+const MAZE_SHADOW_SPEED_MUL = 0.40;
+const cam = { x: 0, y: 0 };
+let sR = SHADOW.r;
+let mazeWalls = [];
+let mazeWorldW = 0, mazeWorldH = 0;
+
+function isMazeActive() {
+  return level >= MAZE_START_LEVEL && state !== 'menu';
+}
+function effectivePlayerR() {
+  const base = PLAYER.r * (skin.radius || 1);
+  return isMazeActive() ? Math.max(8, base * MAZE_PLAYER_SCALE) : base;
+}
+function effectiveShadowR() {
+  return isMazeActive() ? Math.max(12, SHADOW.r * MAZE_SHADOW_SCALE) : SHADOW.r;
+}
+function refreshEntitySizes() {
+  pR = effectivePlayerR();
+  sR = effectiveShadowR();
+}
+function buildMaze() {
+  mazeWalls = [];
+  mazeWorldW = MAZE_COLS * MAZE_CELL;
+  mazeWorldH = MAZE_ROWS * MAZE_CELL;
+  const grid = Array.from({ length: MAZE_ROWS }, () => Array(MAZE_COLS).fill(true));
+  const dirs = [[0, -2], [2, 0], [0, 2], [-2, 0]];
+  function carve(cx, cy) {
+    grid[cy][cx] = false;
+    const order = dirs.slice().sort(() => Math.random() - 0.5);
+    for (const [dx, dy] of order) {
+      const nx = cx + dx, ny = cy + dy;
+      if (ny > 0 && ny < MAZE_ROWS - 1 && nx > 0 && nx < MAZE_COLS - 1 && grid[ny][nx]) {
+        grid[cy + dy / 2][cx + dx / 2] = false;
+        carve(nx, ny);
+      }
+    }
+  }
+  carve(1, 1);
+  for (let y = 2; y < MAZE_ROWS - 2; y++) {
+    for (let x = 2; x < MAZE_COLS - 2; x++) {
+      if (grid[y][x] && Math.random() < 0.14) {
+        const horizOpen = !grid[y][x - 1] && !grid[y][x + 1];
+        const vertOpen = !grid[y - 1][x] && !grid[y + 1][x];
+        if (horizOpen || vertOpen) grid[y][x] = false;
+      }
+    }
+  }
+  mazeWalls.push({ x: 0, y: 0, w: mazeWorldW, h: MAZE_WALL_THICK });
+  mazeWalls.push({ x: 0, y: mazeWorldH - MAZE_WALL_THICK, w: mazeWorldW, h: MAZE_WALL_THICK });
+  mazeWalls.push({ x: 0, y: 0, w: MAZE_WALL_THICK, h: mazeWorldH });
+  mazeWalls.push({ x: mazeWorldW - MAZE_WALL_THICK, y: 0, w: MAZE_WALL_THICK, h: mazeWorldH });
+  for (let r = 0; r < MAZE_ROWS; r++) {
+    for (let c = 0; c < MAZE_COLS; c++) {
+      if (grid[r][c]) mazeWalls.push({ x: c * MAZE_CELL, y: r * MAZE_CELL, w: MAZE_CELL, h: MAZE_CELL });
+    }
+  }
+}
+function pointHitsWall(px, py, rad) {
+  for (const w of mazeWalls) {
+    const cx = clamp(px, w.x, w.x + w.w);
+    const cy = clamp(py, w.y, w.y + w.h);
+    const dx = px - cx, dy = py - cy;
+    if (dx * dx + dy * dy < rad * rad) return true;
+  }
+  return false;
+}
+function resolveCircleWalls(ent, rad, bounceX, bounceY, minBounce) {
+  if (!isMazeActive()) return;
+  ent.x = clamp(ent.x, rad, mazeWorldW - rad);
+  ent.y = clamp(ent.y, rad, mazeWorldH - rad);
+  for (let pass = 0; pass < 2; pass++) {
+    for (const w of mazeWalls) {
+      const cx = clamp(ent.x, w.x, w.x + w.w);
+      const cy = clamp(ent.y, w.y, w.y + w.h);
+      let dx = ent.x - cx, dy = ent.y - cy;
+      let dist = Math.hypot(dx, dy);
+      if (dist < rad) {
+        let nx = 0, ny = 0, overlap = 0;
+        if (dist > 0.0001) {
+          nx = dx / dist; ny = dy / dist; overlap = rad - dist;
+        } else {
+          const lp = Math.abs(ent.x - w.x), rp = Math.abs(w.x + w.w - ent.x);
+          const tp = Math.abs(ent.y - w.y), bp = Math.abs(w.y + w.h - ent.y);
+          const m = Math.min(lp, rp, tp, bp);
+          if (m === lp) { nx = -1; overlap = lp + rad; }
+          else if (m === rp) { nx = 1; overlap = rp + rad; }
+          else if (m === tp) { ny = -1; overlap = tp + rad; }
+          else { ny = 1; overlap = bp + rad; }
+        }
+        ent.x += nx * overlap; ent.y += ny * overlap;
+        const vn = ent.vx * nx + ent.vy * ny;
+        if (vn < 0) {
+          const b = Math.max(minBounce || 0, Math.min(bounceX, bounceY));
+          ent.vx -= (1 + b) * vn * nx;
+          ent.vy -= (1 + b) * vn * ny;
+        }
+      }
+    }
+  }
+}
+function enterMazeMode() {
+  buildMaze();
+  refreshEntitySizes();
+  player.x = MAZE_CELL * 1.5; player.y = MAZE_CELL * 1.5;
+  player.vx = 0; player.vy = 0;
+  let sx = mazeWorldW - MAZE_CELL * 1.5, sy = mazeWorldH - MAZE_CELL * 1.5;
+  if (pointHitsWall(sx, sy, sR)) {
+    for (let r = MAZE_ROWS - 2; r >= 1; r--) {
+      for (let c = MAZE_COLS - 2; c >= 1; c--) {
+        const tx = c * MAZE_CELL + MAZE_CELL * 0.5, ty = r * MAZE_CELL + MAZE_CELL * 0.5;
+        if (!pointHitsWall(tx, ty, sR) && Math.hypot(tx - player.x, ty - player.y) > MAZE_CELL * 6) {
+          sx = tx; sy = ty; r = 0; break;
+        }
+      }
+    }
+  }
+  shadow.x = sx; shadow.y = sy; shadow.vx = 0; shadow.vy = 0;
+  cam.x = player.x - W / 2; cam.y = player.y - H / 2;
+  spawnGem();
+  if (power) spawnPower();
+}
+function updateCamera(dt) {
+  if (isMazeActive()) {
+    const tx = clamp(player.x - W / 2, 0, Math.max(0, mazeWorldW - W));
+    const ty = clamp(player.y - H / 2, 0, Math.max(0, mazeWorldH - H));
+    const k = 1 - Math.exp(-9 * dt);
+    cam.x = lerp(cam.x, tx, k); cam.y = lerp(cam.y, ty, k);
+  } else {
+    cam.x = 0; cam.y = 0;
+  }
+}
+function drawMazeWalls() {
+  if (!isMazeActive() || !mazeWalls.length) return;
+  const th = themeMix();
+  ctx.save();
+  ctx.fillStyle = 'rgba(14, 9, 34, 0.88)';
+  ctx.strokeStyle = 'rgba(' + rgb(th.grid) + ', 0.45)';
+  ctx.lineWidth = 2;
+  for (const w of mazeWalls) {
+    ctx.fillRect(w.x, w.y, w.w, w.h);
+    ctx.strokeRect(w.x + 1, w.y + 1, Math.max(0, w.w - 2), Math.max(0, w.h - 2));
+  }
+  ctx.restore();
+}
+function drawMinimap() {
+  if (!isMazeActive() || !mazeWorldW || !mazeWorldH) return;
+  const mapSize = Math.min(132, Math.max(96, Math.min(W, H) * 0.2));
+  const mx = W - mapSize - 14, my = H - mapSize - 98;
+  const sx = mapSize / mazeWorldW, sy = mapSize / mazeWorldH;
+  ctx.save();
+  ctx.fillStyle = 'rgba(6, 4, 18, 0.75)';
+  ctx.strokeStyle = 'rgba(125, 249, 255, 0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(mx, my, mapSize, mapSize, 10); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(125, 249, 255, 0.25)';
+  for (const w of mazeWalls) ctx.fillRect(mx + w.x * sx, my + w.y * sy, Math.max(1, w.w * sx), Math.max(1, w.h * sy));
+  if (gem) { ctx.fillStyle = '#ffd86b'; ctx.beginPath(); ctx.arc(mx + gem.x * sx, my + gem.y * sy, 2.8, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = '#b66bff'; ctx.beginPath(); ctx.arc(mx + shadow.x * sx, my + shadow.y * sy, 3.6, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#7df9ff'; ctx.beginPath(); ctx.arc(mx + player.x * sx, my + player.y * sy, 3.4, 0, TAU); ctx.fill();
+  ctx.restore();
+}
 
 /* ---------- المستويات والاندفاع ---------- */
 const LEVEL_STEP = 5;        // عدد الجواهر اللازمة للارتقاء لمستوى جديد
@@ -523,7 +696,9 @@ addEventListener('resize', resize);
 /* ---------- منطق اللعبة ---------- */
 function shadowMaxSpeed() {
   const f = Math.min(SHADOW.capFactor, SHADOW.baseFactor * (1 + SHADOW.perGem * gemsCount));
-  return PLAYER.maxSpeed * f;
+  let spd = PLAYER.maxSpeed * f;
+  if (isMazeActive()) spd *= MAZE_SHADOW_SPEED_MUL;
+  return spd;
 }
 function shadowMaxForce() {
   return SHADOW.baseForce * Math.min(2, 1 + SHADOW.forcePerGem * gemsCount);
@@ -565,7 +740,7 @@ function themeMix() {
 }
 function applySkin() {
   skin = SKINS.find(s => s.id === skinId) || SKINS[0];
-  pR = PLAYER.r * (skin.radius || 1);
+  refreshEntitySizes();
 }
 function refreshCoinTexts() {
   el.menuCoins.textContent = 'رصيدك 🪙 ' + coins;
@@ -609,6 +784,7 @@ function collectGem() {
 }
 
 function levelUp(nl) {
+  const prevMaze = isMazeActive();
   level = nl;
   const th = THEMES[(level - 1) % THEMES.length];
   themeFrom = themeMix(); themeTo = th; themeT = 0;
@@ -621,6 +797,7 @@ function levelUp(nl) {
   const hint = level === GEM_TTL_LEVEL ? 'من الآن تختفي الجوهرة إن تأخرت عليها'
              : level === LUNGE_LEVEL ? 'احذر! الظل صار ينقضّ بعد إنذار أحمر'
              : th.name;
+  if (!prevMaze && isMazeActive()) { enterMazeMode(); showBanner('أرض المتاهة — المستوى ' + level, 'جدران صلبة وكاميرا تتبع • الظل أبطأ 60%'); return; }
   showBanner('المستوى ' + level, hint);
 }
 
@@ -955,10 +1132,12 @@ function update(dt) {
 
   /* تصادم مرن مع حدود الشاشة (ارتداد + انزلاق) */
   const r = pR;
-  if (player.x < r)     { player.x = r;     player.vx =  Math.abs(player.vx) * PLAYER.restitution; }
-  if (player.x > W - r) { player.x = W - r; player.vx = -Math.abs(player.vx) * PLAYER.restitution; }
-  if (player.y < r)     { player.y = r;     player.vy =  Math.abs(player.vy) * PLAYER.restitution; }
-  if (player.y > H - r) { player.y = H - r; player.vy = -Math.abs(player.vy) * PLAYER.restitution; }
+  if (isMazeActive()) { resolveCircleWalls(player, r, PLAYER.restitution, PLAYER.restitution, 0.2); } else {
+    if (player.x < r)     { player.x = r;     player.vx =  Math.abs(player.vx) * PLAYER.restitution; }
+    if (player.x > W - r) { player.x = W - r; player.vx = -Math.abs(player.vx) * PLAYER.restitution; }
+    if (player.y < r)     { player.y = r;     player.vy =  Math.abs(player.vy) * PLAYER.restitution; }
+    if (player.y > H - r) { player.y = H - r; player.vy = -Math.abs(player.vy) * PLAYER.restitution; }
+  }
 
   /* أثر اللاعب */
   if (dashT > 0) {
@@ -1005,11 +1184,14 @@ function update(dt) {
     if (ss > maxS) { shadow.vx *= maxS / ss; shadow.vy *= maxS / ss; }
   }
   shadow.x += shadow.vx * dt; shadow.y += shadow.vy * dt;
-  const sr = SHADOW.r;
-  if (shadow.x < sr)     { shadow.x = sr;     shadow.vx = Math.abs(shadow.vx) * 0.3; }
-  if (shadow.x > W - sr) { shadow.x = W - sr; shadow.vx = -Math.abs(shadow.vx) * 0.3; }
-  if (shadow.y < sr)     { shadow.y = sr;     shadow.vy = Math.abs(shadow.vy) * 0.3; }
-  if (shadow.y > H - sr) { shadow.y = H - sr; shadow.vy = -Math.abs(shadow.vy) * 0.3; }
+  const sr = sR;
+  if (isMazeActive()) { resolveCircleWalls(shadow, sr, 0.35, 0.35, 0.1); } else {
+    if (shadow.x < sr)     { shadow.x = sr;     shadow.vx = Math.abs(shadow.vx) * 0.3; }
+    if (shadow.x > W - sr) { shadow.x = W - sr; shadow.vx = -Math.abs(shadow.vx) * 0.3; }
+    if (shadow.y < sr)     { shadow.y = sr;     shadow.vy = Math.abs(shadow.vy) * 0.3; }
+    if (shadow.y > H - sr) { shadow.y = H - sr; shadow.vy = -Math.abs(shadow.vy) * 0.3; }
+  }
+  updateCamera(dt);
   if (freezeT <= 0 && shadow.appear > 0.3 && Math.random() < 0.5) {
     burst(shadow.x + rand(-18, 18), shadow.y + rand(-18, 18), 1, '#3a1470', 14, 10, { add: false, life: 0.7, alpha: 0.35 });
   }
@@ -1025,7 +1207,7 @@ function update(dt) {
 
   /* --- الاصطياد --- */
   if (invuln > 0) invuln -= dt;
-  if (freezeT <= 0 && invuln <= 0 && shadow.appear >= 1 && dist < pR + SHADOW.r * 0.62) {
+  if (freezeT <= 0 && invuln <= 0 && shadow.appear >= 1 && dist < pR + sR * 0.62) {
     if (shield) breakShield();
     else { die(); return; }
   }
@@ -1212,7 +1394,7 @@ function blobPath(x, y, r, t, wob) {
 function drawShadow() {
   const s = shadow, f = freezeBlend, ap = s.appear;
   if (ap <= 0.01) return;
-  const r = SHADOW.r * (0.55 + 0.45 * ap);
+  const r = sR * (0.55 + 0.45 * ap);
   const ex = player.x - s.x, ey = player.y - s.y, el_ = Math.hypot(ex, ey) || 1;
   const nx = ex / el_, ny = ey / el_;
   ctx.save();
@@ -1393,6 +1575,9 @@ function render() {
   if (shake > 0.05 && !reduceMotion) ctx.translate(rand(-shake, shake), rand(-shake, shake));   // اهتزاز الشاشة
 
   drawBackground();
+  ctx.save();
+  if (isMazeActive()) ctx.translate(-cam.x, -cam.y);
+  drawMazeWalls();
   drawPlayerLight();
   drawParticles(true);
   if (gem && state !== 'menu') drawGem(gem);
@@ -1402,6 +1587,7 @@ function render() {
   drawPlayer();
   drawFloats();
   ctx.restore();
+  ctx.restore();
 
   // تظليل الحواف (Vignette) + وميض الخطر
   ctx.drawImage(vigNormal, 0, 0, W, H);
@@ -1410,6 +1596,7 @@ function render() {
     ctx.drawImage(vigDanger, 0, 0, W, H);
     ctx.globalAlpha = 1;
   }
+  drawMinimap();
   drawJoystick();
 }
 
@@ -1430,6 +1617,7 @@ function updateHud() {
 
   if (coins !== lastCoins) { el.coinVal.textContent = coins; lastCoins = coins; }
   if (level !== lastLv) { el.levelTxt.textContent = 'المستوى ' + level; lastLv = level; }
+  el.mazeChip.classList.toggle('hidden', !isMazeActive());
   el.levelFill.style.width = ((gemsCount % LEVEL_STEP) / LEVEL_STEP * 100).toFixed(1) + '%';
   const showCombo = combo >= 2 && comboT > 0;
   el.comboChip.classList.toggle('hidden', !showCombo);
