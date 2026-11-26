@@ -310,12 +310,12 @@ const THEMES = [
 
 /* ---------- الشخصيات (المتجر) ---------- */
 const SKINS = [
-  { id: 'nur',      name: 'نور',   price: 0,   shape: 'circle',  c: ['#ffffff', '#aef6ff', '#3fd3f0'], glow: '#7df9ff', rgb: '125,249,255', perk: 'الشخصية الأساسية' },
-  { id: 'jamr',     name: 'جمر',   price: 60,  shape: 'drop',    c: ['#fff3d6', '#ffb26b', '#ff5a36'], glow: '#ff7a45', rgb: '255,122,69',  perk: 'تسارع أعلى عند الحركة', accel: 1.2 },
-  { id: 'zumurrud', name: 'زمرّد', price: 120, shape: 'diamond', c: ['#eafff3', '#7dffb4', '#10c26a'], glow: '#4dffa0', rgb: '77,255,160',  perk: 'مغناطيس يجذب الجواهر القريبة', magnet: 34 },
-  { id: 'najma',    name: 'نجمة',  price: 200, shape: 'star',    c: ['#ffffff', '#e0b8ff', '#8a3ffc'], glow: '#b66bff', rgb: '182,107,255', perk: 'يطول تجميد الظل ثانية إضافية', freezeBonus: 1 },
-  { id: 'dhahab',   name: 'ذهب',   price: 300, shape: 'square',  c: ['#fff8dc', '#ffd86b', '#d99a14'], glow: '#ffd86b', rgb: '255,216,107', perk: 'عملات أكثر بنسبة ٥٠٪', coinMul: 1.5 },
-  { id: 'shabah',   name: 'شبح',   price: 450, shape: 'ghost',   c: ['#ffffff', '#e6ecff', '#9aa6d6'], glow: '#cfd8ff', rgb: '207,216,255', perk: 'حجم أصغر فيصعب اصطياده', radius: 0.78 }
+  { id: 'nur',      name: 'نور',   price:0,   shape: 'circle',  c: ['#ffffff', '#aef6ff', '#3fd3f0'], glow: '#7df9ff', rgb: '125,249,255', perk: 'الشخصية الأساسية' },
+  { id: 'jamr',     name: 'جمر',   price:6000,  shape: 'drop',    c: ['#fff3d6', '#ffb26b', '#ff5a36'], glow: '#ff7a45', rgb: '255,122,69',  perk: 'تسارع أعلى عند الحركة', accel: 1.2 },
+  { id: 'zumurrud', name: 'زمرّد', price:12000, shape: 'diamond', c: ['#eafff3', '#7dffb4', '#10c26a'], glow: '#4dffa0', rgb: '77,255,160',  perk: 'مغناطيس يجذب الجواهر القريبة', magnet: 34 },
+  { id: 'najma',    name: 'نجمة',  price:20000, shape: 'star',    c: ['#ffffff', '#e0b8ff', '#8a3ffc'], glow: '#b66bff', rgb: '182,107,255', perk: 'يطول تجميد الظل ثانية إضافية', freezeBonus: 1 },
+  { id: 'dhahab',   name: 'ذهب',   price:30000, shape: 'square',  c: ['#fff8dc', '#ffd86b', '#d99a14'], glow: '#ffd86b', rgb: '255,216,107', perk: 'عملات أكثر بنسبة ٥٠٪', coinMul: 1.5 },
+  { id: 'shabah',   name: 'شبح',   price:45000, shape: 'ghost',   c: ['#ffffff', '#e6ecff', '#9aa6d6'], glow: '#cfd8ff', rgb: '207,216,255', perk: 'حجم أصغر فيصعب اصطياده', radius: 0.78 }
 ];
 
 /* ---------- الحالة ---------- */
@@ -701,6 +701,82 @@ function onSkinClick(s) {
   skinId = s.id; saveSkin(); applySkin();
   renderShop();
 }
+
+/* ---------- المتجر الثاني (القدرات والترقيات) ---------- */
+const PERKS_SHOP = [
+  { id: "gem_time",   name: "مؤقّت النقاط الممتد",      price: 1500, perk: "يزيد وقت بقاء النقطة قبل انتهاء دائرة المؤقت." },
+  { id: "freeze_ext", name: "تجميد الظل المطوّل",       price: 2000, perk: "يزيد مدة تجميد الظل مع إبقاء حلقة المؤقت حوله." },
+  { id: "start_shld", name: "درع الانطلاقة",            price: 2500, perk: "يبدأ كل جولة بدرع حماية جاهز من البداية." },
+  { id: "magnet",     name: "مغناطيس الجواهر",          price: 3000, perk: "يجذب النقاط القريبة نحو اللاعب تلقائياً." },
+  { id: "reach_up",   name: "توسيع نطاق الجذب",        price: 3500, perk: "يوسّع مسافة التقاط الجواهر والقوى الخاصة." },
+  { id: "x2_perm",    name: "مضاعف النقاط الدائم ×2",   price: 5000, perk: "يضاعف النقاط والعملات المكتسبة بشكل دائم." },
+  { id: "auto_pulse", name: "نبضة التجميد التلقائية",   price: 5000, perk: "يجمد الظل تلقائياً عند اقترابه الخطير لأول مرة." },
+  { id: "time_slow",  name: "حقل التباطؤ الزمني",       price: 5000, perk: "يبطّئ انكماش دوائر المؤقت بنسبة 25%." },
+  { id: "halo_aura",  name: "هالة النور الأسطورية",     price: 5500, perk: "توهج خاص حول اللاعب وتباطؤ خفيف لحركة الظل." },
+  { id: "repel_wave", name: "موجة الصدّ الذهبية",       price: 5500, perk: "تدفع الظل للخلف عند التقاط أي قوة خاصة." },
+  { id: "revive_1",   name: "الفرصة الثانية",           price: 6000, perk: "إحياء مرة واحدة في الجولة مع إبعاد وتجميد الظل." },
+  { id: "save_loss",  name: "حفظ النقاط عند الخسارة",   price: 6500, perk: "يحفظ جزءاً من نقاط الجولة حتى عند الخسارة." },
+  { id: "stealth_op", name: "وضع التخفّي المؤقت",      price: 7500, perk: "يمنح تخفّياً مؤقتاً يقلل تركيز مطاردة الظل." }
+];
+let ownedPerks = [];
+try {
+  const op = JSON.parse(localStorage.getItem("sh_perks") || "[]");
+  if (Array.isArray(op)) ownedPerks = op.filter(id => PERKS_SHOP.some(x => x.id === id));
+} catch (e) {}
+const savePerks = () => store("sh_perks", JSON.stringify(ownedPerks));
+const hasPerk = (id) => ownedPerks.includes(id);
+
+function renderPerksShop() {
+  let box = document.getElementById("perksShopBox");
+  const shopEl = document.getElementById("shop");
+  if (!shopEl) return;
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "perksShopBox";
+    box.style.cssText = "width:min(760px,100%);margin-top:14px;padding:12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12)";
+    shopEl.insertBefore(box, document.getElementById("shopClose"));
+  }
+  box.innerHTML = "<h3 style=\"margin:0 0 10px;color:#7df9ff\">متجر القدرات والترقيات</h3><div id=\"perksGrid\" style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px\"></div>";
+  const grid = box.querySelector("#perksGrid");
+  for (const item of PERKS_SHOP) {
+    const bought = hasPerk(item.id);
+    const card = document.createElement("div");
+    card.style.cssText = "padding:10px;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;justify-content:space-between;gap:8px";
+    card.innerHTML = `<div><div style="font-weight:800;color:#fff">${item.name}</div><div style="font-size:13px;opacity:.85;margin-top:4px">${item.perk}</div></div>`;
+    const btn = document.createElement("button");
+    btn.className = "main";
+    btn.style.cssText = "padding:8px 10px;font-size:14px";
+    btn.textContent = bought ? "مفعّلة ✓" : ("شراء 🪙 " + item.price);
+    btn.disabled = bought;
+    btn.addEventListener("click", () => {
+      if (typeof audioOn === "function") audioOn();
+      if (hasPerk(item.id)) return;
+      if (coins < item.price) {
+        if (typeof shopMsg === "function") shopMsg(`تحتاج ${item.price - coins} عملة إضافية لشراء ${item.name}`, true);
+        if (sfx && sfx.deny) sfx.deny();
+        return;
+      }
+      coins -= item.price;
+      ownedPerks.push(item.id);
+      saveCoins();
+      savePerks();
+      if (typeof refreshCoinTexts === "function") refreshCoinTexts();
+      if (sfx && sfx.buy) sfx.buy();
+      if (typeof shopMsg === "function") shopMsg(`تم شراء وتفعيل ${item.name}!`);
+      renderPerksShop();
+    });
+    card.appendChild(btn);
+    grid.appendChild(card);
+  }
+}
+if (typeof renderShop === "function") {
+  const _origRenderShop = renderShop;
+  renderShop = function() {
+    _origRenderShop();
+    renderPerksShop();
+  };
+}
+
 function openShop(from) {
   shopOpen = true; shopFrom = from;
   el.menu.classList.add('hidden'); el.over.classList.add('hidden');
@@ -1129,6 +1205,22 @@ function drawShadow() {
     ctx.strokeStyle = 'rgba(190,225,255,.7)'; ctx.lineWidth = 2;
     ctx.setLineDash([7, 9]); ctx.lineDashOffset = -time * 14;
     ctx.beginPath(); ctx.arc(s.x, s.y, r * 1.55, 0, TAU); ctx.stroke();
+
+  // مؤقت دائري تنازلي حول الظل أثناء التجميد
+  if (typeof freezeT !== "undefined" && freezeT > 0) {
+    const maxF = (typeof FREEZE_DUR !== "undefined" && FREEZE_DUR > 0) ? FREEZE_DUR : 4;
+    const ratio = Math.max(0, Math.min(1, freezeT / maxF));
+    ctx.save();
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = "#7df9ff";
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r * 1.85, -Math.PI / 2, -Math.PI / 2 + TAU * ratio);
+    ctx.stroke();
+    ctx.restore();
+  }
+
     ctx.setLineDash([]);
   }
   if (lungeWarn > 0) {   // إنذار: حلقة حمراء نابضة
@@ -1341,3 +1433,5 @@ document.addEventListener("click", function(e) {
 
 </body>
 </html>
+
+/* SHOP_X100_APPLIED */
