@@ -777,6 +777,62 @@ if (typeof renderShop === "function") {
   };
 }
 
+
+
+/* ---------- إشعار وزر التحديث المتاح (تلقائي من GitHub) ---------- */
+const APP_VERSION = "1.0.0";
+const VERSION_JSON_URL = "https://raw.githubusercontent.com/mohamadhossunkhalil-lab/Mohammed-Hussein-Khalil-Farah-/main/version.json";
+const DEFAULT_APK_URL = "https://github.com/mohamadhossunkhalil-lab/Mohammed-Hussein-Khalil-Farah-/raw/main/escape-shadow.apk";
+
+function isNewerVersion(latest, current) {
+  const a = String(latest).split(".").map(n => parseInt(n, 10) || 0);
+  const b = String(current).split(".").map(n => parseInt(n, 10) || 0);
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    const x = a[i] || 0, y = b[i] || 0;
+    if (x > y) return true;
+    if (x < y) return false;
+  }
+  return false;
+}
+
+function showUpdateButton(latestVer, apkUrl) {
+  if (document.getElementById("updateAvailableBtn")) return;
+  const menuEl = document.getElementById("menu");
+  if (!menuEl) return;
+  const btn = document.createElement("button");
+  btn.id = "updateAvailableBtn";
+  btn.className = "main alt";
+  btn.style.cssText = "margin-top:8px;border-color:#7df9ff;color:#7df9ff";
+  btn.textContent = "تحديث متاح (" + latestVer + ") ⬇";
+  btn.addEventListener("click", () => {
+    window.open(apkUrl || DEFAULT_APK_URL, "_blank", "noopener,noreferrer");
+  });
+  const shopBtn = document.getElementById("shopBtn");
+  if (shopBtn && shopBtn.parentNode === menuEl) {
+    shopBtn.insertAdjacentElement("afterend", btn);
+  } else {
+    menuEl.appendChild(btn);
+  }
+}
+
+async function checkAppUpdate() {
+  try {
+    const res = await fetch(VERSION_JSON_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.version && isNewerVersion(data.version, APP_VERSION)) {
+      showUpdateButton(data.version, data.url);
+    }
+  } catch (e) {}
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", checkAppUpdate);
+} else {
+  checkAppUpdate();
+}
+
 function openShop(from) {
   shopOpen = true; shopFrom = from;
   el.menu.classList.add('hidden'); el.over.classList.add('hidden');
